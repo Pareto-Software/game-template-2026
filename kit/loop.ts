@@ -1,4 +1,4 @@
-// Canvas, scaling and the game loop (locked kit file).
+// Canvas, scaling and the game loop (shared kit file – used by every game).
 //
 // The game always draws on a fixed logical canvas (default 960 × 540) that is
 // scaled to fit the window. update(dt) runs at a fixed 60 steps per second.
@@ -40,6 +40,25 @@ export function setPaused(value: boolean) {
   paused = value;
 }
 
+/**
+ * A small "back to all games" button in the bottom-left corner.
+ * Games live in games/<name>/, so the gallery is two folders up.
+ */
+function addGalleryLink() {
+  const a = document.createElement('a');
+  a.href = '../../';
+  a.textContent = '← Kaikki pelit';
+  a.title = 'Takaisin galleriaan';
+  Object.assign(a.style, {
+    position: 'fixed', left: '12px', bottom: '12px', zIndex: '10',
+    padding: '8px 14px', borderRadius: '999px', background: 'rgba(0,0,0,0.55)',
+    color: '#fff', font: 'bold 15px system-ui, sans-serif', textDecoration: 'none',
+  });
+  // Don't let the link keep keyboard focus: the keys belong to the game.
+  a.addEventListener('focus', () => a.blur());
+  document.body.appendChild(a);
+}
+
 export function startGame(setup: GameSetup): RunningGame {
   const width = setup.width ?? 960;
   const height = setup.height ?? 540;
@@ -60,6 +79,7 @@ export function startGame(setup: GameSetup): RunningGame {
   document.body.style.overflow = 'hidden';
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d')!;
+  addGalleryLink();
 
   const fit = () => {
     const s = Math.min(innerWidth / width, innerHeight / height);

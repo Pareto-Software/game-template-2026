@@ -3,6 +3,5 @@
   "emoji": "🐭",
   "description": "Kerää kaikki juustot ja juokse kotiin – varo ötököitä!",
   "controls": "Pelaaja 1: W A S D · Pelaaja 2: nuolet",
-  "team": "",
-  "template": "simple-maze"
+  "team": ""
 }

@@ -1,4 +1,4 @@
-// Sound effects made with the Web Audio API – no sound files needed (locked kit file).
+// Sound effects made with the Web Audio API – no sound files needed (shared kit file – used by every game).
 //
 // sfx('jump')                 – play a sound
 // sfx('coin', { pitch: 1.5 }) – higher (2 = an octave up, 0.5 = an octave down)

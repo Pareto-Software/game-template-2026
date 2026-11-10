@@ -1,6 +1,6 @@
-// Ready-made looks for the games (locked kit file).
+// Ready-made looks for the games (shared kit file – used by every game).
 //
-// Pick one in game/config.ts:  theme: 'talvi'
+// Pick one in games/<peli>/config.ts:  theme: 'talvi'
 // Each theme has colours, a few background decorations and suggested emoji.
 
 import { drawEmoji } from './sprites';

@@ -1,6 +1,6 @@
 # Kenttä – levels, tiles, lava
 
-Levels are strings in `game/levels.ts`; each letter is one tile. The legend is
+Levels are strings in `games/<peli>/levels.ts`; each letter is one tile. The legend is
 at the top of the file. Rows may have different lengths.
 
 - **New level:** add another string to the `levels` array (copy an existing one

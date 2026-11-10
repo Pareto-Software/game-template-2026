@@ -1,4 +1,4 @@
-// Simple physics for tile-based games (locked kit file).
+// Simple physics for tile-based games (shared kit file – used by every game).
 //
 // Positions are the TOP-LEFT corner of a box, in pixels. Speeds are pixels per second.
 // moveBody() moves a box and stops it at solid tiles; one-way tiles ("=")

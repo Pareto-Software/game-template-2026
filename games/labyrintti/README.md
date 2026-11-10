@@ -1,4 +1,4 @@
-# simple-maze – map for the agent
+# labyrintti – map for the agent
 
 A top-down maze for one or two players: collect all the cheese 🧀, avoid the
 critters, reach the exit 🏠. Each level fits on one screen (max 24 × 12 tiles).
@@ -9,7 +9,7 @@ Everything in this game lives in four files; don't create new files.
 | `config.ts` | Every number, emoji, power, tile and thing. **Start here.** |
 | `levels.ts` | The maze maps (letters) and the legend. |
 | `main.ts` | The game logic, in small functions (below). |
-| `public/meta.json` | Title, emoji, description and controls shown in the gallery. |
+| `meta.json` | Title, emoji, description and controls shown on the gallery page. |
 
 ## Request → where to change it
 

@@ -1,4 +1,4 @@
-// Particles and screen effects (locked kit file).
+// Particles and screen effects (shared kit file – used by every game).
 //
 // particles.burst(x, y, ...) – a puff of dots or emoji at a world position
 // particles.confetti(x, y)   – a big colourful celebration

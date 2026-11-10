@@ -1,4 +1,4 @@
-# simple-platformer – map for the agent
+# tasohyppely – map for the agent
 
 A side-scrolling platformer for one or two players. Levels are letter maps.
 Everything in this game lives in four files; don't create new files.
@@ -8,7 +8,7 @@ Everything in this game lives in four files; don't create new files.
 | `config.ts` | Every number, emoji, superpower, tile and thing. **Start here.** |
 | `levels.ts` | The level maps (letters) and the legend. |
 | `main.ts` | The game logic, in small functions (below). |
-| `public/meta.json` | Title, emoji, description and controls shown in the gallery. |
+| `meta.json` | Title, emoji, description and controls shown on the gallery page. |
 
 ## Request → where to change it
 

@@ -2,3 +2,4 @@ node_modules/
 dist/
 virheet.log
 .DS_Store
+.claude/settings.local.json

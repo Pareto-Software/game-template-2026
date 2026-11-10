@@ -1,4 +1,4 @@
-// Keyboard and gamepad input for two players (locked kit file).
+// Keyboard and gamepad input for two players (shared kit file – used by every game).
 //
 // Player 1: A / D move, W or Space jump (W also = up), S down, F action (shoot)
 // Player 2: ← / → move, ↑ jump (also = up), ↓ down, Enter or . action

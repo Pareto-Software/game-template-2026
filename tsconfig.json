@@ -28,7 +28,8 @@
     }
   },
   "include": [
-    "game",
+    "games",
+    "gallery",
     "kit"
   ],
   "exclude": [

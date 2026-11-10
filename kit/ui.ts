@@ -1,4 +1,4 @@
-// Text, score display and banners (locked kit file).
+// Text, score display and banners (shared kit file – used by every game).
 
 const FONT = '"Arial Rounded MT Bold", "Avenir Next", system-ui, sans-serif';
 

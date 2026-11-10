@@ -1,10 +1,10 @@
-// Development helper (locked kit file).
+// Development helper (shared kit file – used by every game).
 //
 // When the game file changes, the page reloads. keep() remembers a few small
 // values (e.g. level number and score) across those reloads, so the kids don't
 // start from level 1 after every change. Only in development, never online.
 
-const KEY = 'pelipaja:dev:';
+const KEY = `pelipaja:dev:${location.pathname}:`;
 
 export const dev = {
   /** Remember a value until the browser tab is closed (development only). */

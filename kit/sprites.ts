@@ -1,4 +1,4 @@
-// Drawing emoji and simple shapes (locked kit file).
+// Drawing emoji and simple shapes (shared kit file – used by every game).
 //
 // drawEmoji(ctx, '🐱', x, y, size)  – draws an emoji centred on (x, y).
 //   options: flipX (mirror), rotate (radians), alpha (0–1), scaleX / scaleY

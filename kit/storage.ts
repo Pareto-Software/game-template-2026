@@ -1,12 +1,10 @@
-// Saving small things in the browser, e.g. a high score (locked kit file).
+// Saving small things in the browser, e.g. a high score (shared kit file – used by every game).
 //
 // All games on the same site share the browser's storage, so every key gets a
-// prefix from the game's own address. Never store names or personal details.
+// prefix from the game's own address (e.g. /peli-kettu/games/tasohyppely/).
+// Never store names or personal details.
 
-const prefix = (() => {
-  const first = location.pathname.split('/').filter(Boolean)[0];
-  return `pelipaja:${first ?? 'local'}:`;
-})();
+const prefix = `pelipaja:${location.pathname.replace(/index\.html$/, '')}:`;
 
 export const storage = {
   load<T>(key: string, fallback: T): T {

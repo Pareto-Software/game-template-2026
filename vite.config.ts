@@ -1,21 +1,30 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
+import { existsSync, readdirSync } from 'node:fs';
 import { pelipaja } from './kit/vite-plugin.ts';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
+// Every folder in games/ with an index.html is a game: it gets its own page at
+// games/<name>/ and a card on the gallery page (index.html).
+const games = readdirSync(here('./games')).filter((d) => existsSync(here(`./games/${d}/index.html`)));
+
 export default defineConfig({
-  root: 'game',
   base: './', // the published site lives at /<repo-name>/
-  publicDir: 'public', // game/public → meta.json is copied as-is
+  publicDir: false,
   resolve: { alias: { '@kit': here('./kit'), '@assets': here('./assets') } },
-  // Inline PostCSS options: Vite then never loads a postcss.config.* file from game/
-  // (such a file would run as Node code on the laptop).
+  // Inline PostCSS options: Vite never loads a postcss.config.* file from the project.
   css: { postcss: {} },
-  server: {
-    fs: { allow: [here('.')] },
-    watch: { ignored: ['**/virheet.log'] },
+  server: { watch: { ignored: ['**/virheet.log'] } },
+  build: {
+    outDir: here('./dist'),
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        gallery: here('./index.html'),
+        ...Object.fromEntries(games.map((g) => [g, here(`./games/${g}/index.html`)])),
+      },
+    },
   },
-  build: { outDir: here('./dist'), emptyOutDir: true },
   plugins: [pelipaja({ logFile: here('./virheet.log') })],
 });

@@ -1,18 +1,20 @@
 # Pelipohja – Pelipaja game template
 
-Template repo for Pareto's "Lapsi töihin" game workshop. Each team makes its own
-copy, turns on GitHub Pages, and builds a browser game by telling Claude Code
-what to change. Claude edits `game/`, checks it, commits and pushes; a GitHub
-Actions workflow publishes the game.
+Template repo for Pareto's "Lapsi töihin" game workshop. The site has a gallery
+page with every game in `games/`; each game has a "← Kaikki pelit" button back
+to the gallery. Teams make their own copy, turn on GitHub Pages, and change the
+games by telling Claude Code what they want. Claude edits a game, checks it,
+commits and pushes; a GitHub Actions workflow publishes the site.
+
+Live version of this template: https://pareto-software.github.io/game-template-2026/
 
 ## Make your team's copy (once, before the day)
 
 1. On this repo: **Use this template → Create a new repository**.
    - Owner: the event organisation. Name: `peli-<table animal>`, e.g. `peli-kettu`.
-   - **Public.** (Offline teams: **Private**, and skip step 2 – private repos
-     can't publish Pages on GitHub Free.)
+   - **Public** (private repos can't publish Pages on GitHub Free).
 2. In the new repo: **Settings → Pages → Source: GitHub Actions**.
-3. **Actions → Julkaise → Run workflow.** About a minute later the game is at
+3. **Actions → Julkaise → Run workflow.** About a minute later the site is at
    `https://<organisation>.github.io/peli-kettu/`.
 4. On the laptop:
 
@@ -36,15 +38,13 @@ npm run dev
 claude
 ```
 
-The first opens the game in Chrome; the second is Claude Code. Click the game
-window after sending a request so the kids' key presses go to the game.
+The first opens the gallery in the default browser; the second is Claude Code.
+Click the game window after sending a request so the kids' key presses go to the game.
 
 ## Laptop requirements
 
-- macOS with Chrome set as the default browser (`npm run dev` opens the default
-  browser), Node 24 (`.nvmrc`), git, GitHub CLI, Claude Code.
-- A dedicated Mac or a fresh macOS user account, so only this repo's
-  `.claude/settings.json` applies (personal Claude settings would add permissions).
+- macOS with Chrome set as the default browser, Node 24 (`.nvmrc`), git,
+  GitHub CLI, Claude Code.
 - Git author: `git config --global user.name "Pelipaja"` and
   `git config --global user.email "peli@pelipaja.invalid"`.
 - Run `claude` once in the team folder: sign in with the adult's Pareto seat and
@@ -54,14 +54,17 @@ window after sending a request so the kids' key presses go to the game.
 
 | Path | What |
 | --- | --- |
-| `game/` | The team's game – the only folder Claude may edit. Starts as simple-platformer. |
-| `templates/` | `simple-platformer`, `simple-maze` – starting games with the same file names. |
+| `index.html`, `gallery/` | The gallery page: a card per game, read from each game's `meta.json`. |
+| `games/tasohyppely/` | Platformer: 3 levels, power-ups, a dragon boss. |
+| `games/labyrintti/` | Maze: 2 levels, critters, a key and doors. |
 | `kit/` | Shared engine: loop, input (2 players + gamepads), sound, sprites, physics, particles, ui, themes. |
 | `docs/recipes/` | Short how-tos for common requests. |
 | `assets/CATALOG.md` | Emoji ideas, themes, sound names. |
 | `CLAUDE.md` | Rules for the agent (content, saving, undo). |
-| `.claude/settings.json` | Claude's permissions: edit `game/`, a few git and npm commands, no web. |
 | `.github/workflows/julkaise.yml` | Builds and publishes to GitHub Pages on every push. |
+
+A new game is a new folder in `games/` with `index.html` and `meta.json` (copy
+an existing one); it appears in the gallery and the build automatically.
 
 ## Controls
 

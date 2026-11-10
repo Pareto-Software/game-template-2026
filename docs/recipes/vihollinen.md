@@ -1,9 +1,9 @@
 # Vihollinen – a new enemy or a boss
 
-1. Add a letter to `config.things` in `game/config.ts`.
-2. Put that letter into a level in `game/levels.ts`.
+1. Add a letter to `config.things` in `games/<peli>/config.ts`.
+2. Put that letter into a level in `games/<peli>/levels.ts`.
 
-**Platformer** (`moves`: still, walk, hop, fly, chase, fall · `touch`: hurt, stomp):
+**Tasohyppely (platformer)** (`moves`: still, walk, hop, fly, chase, fall · `touch`: hurt, stomp):
 
 ```ts
 'z': { emoji: '🧟', touch: 'stomp', moves: 'walk', speed: 1, score: 30 },
@@ -17,7 +17,7 @@ A boss: big, several hits, a health bar, shoots at the players:
        score: 300, sound: 'roar', shoots: { emoji: '🍌', every: 1.5, speed: 7 } },
 ```
 
-**Maze** (`moves`: still, wander, chase, patrol · `touch`: hurt):
+**Labyrintti (maze)** (`moves`: still, wander, chase, patrol · `touch`: hurt):
 
 ```ts
 'g': { emoji: '👻', touch: 'hurt', moves: 'chase', speed: 2 },

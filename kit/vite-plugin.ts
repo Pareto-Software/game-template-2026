@@ -1,4 +1,4 @@
-// Pelipaja Vite plugin (locked – the agent cannot edit this file).
+// Pelipaja Vite plugin (shared kit file).
 // - Adds <meta name="robots" content="noindex"> to every page (dev and build).
 // - In development, browser errors are written to virheet.log in the repo root,
 //   so the agent can read them when the adult says "peli on rikki".
