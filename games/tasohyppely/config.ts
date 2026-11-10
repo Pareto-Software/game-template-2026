@@ -26,6 +26,7 @@ export type Touch =
 export type Power = 'doubleJump' | 'fly' | 'shoot' | 'big' | 'fast';
 
 export interface ThingDef {
+  /** An emoji, or a picture file: 'kuvat/name.svg' (this game's kuvat/ folder). */
   emoji: string;
   touch: Touch;
   moves?: Moves;
@@ -114,7 +115,8 @@ export const config = {
   things: {
     'o': { emoji: '⭐', touch: 'collect', score: 10, bob: true, sound: 'coin' },
     'c': { emoji: '🍬', touch: 'collect', score: 5, moves: 'fall', sound: 'coin' },
-    'e': { emoji: '🐌', touch: 'stomp', moves: 'walk', speed: 1.5, score: 20, facesLeft: true },
+    // A picture file instead of an emoji: games/tasohyppely/kuvat/limamoykky.svg
+    'e': { emoji: 'kuvat/limamoykky.svg', touch: 'stomp', moves: 'walk', speed: 1.5, score: 20 },
     'h': { emoji: '🐸', touch: 'stomp', moves: 'hop', speed: 2, score: 20 },
     'b': { emoji: '🦇', touch: 'hurt', moves: 'fly', speed: 2.5 },
     'T': { emoji: '🍄', touch: 'bounce', size: 0.9 },

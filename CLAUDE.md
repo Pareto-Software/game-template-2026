@@ -16,7 +16,8 @@ kids are waiting, so make the change quickly and keep the game playable.
   `config.ts` holds almost every number, emoji and thing; most requests are a
   one-line change there or a new letter in `levels.ts`.
 - Look things up before inventing them:
-  - `docs/recipes/` – how to do common requests (hahmo, vihollinen, kentta, ammus, sade);
+  - `docs/recipes/` – how to do common requests (hahmo, vihollinen, kentta, ammus, sade,
+    kuva = draw an own character as SVG);
     they cover tasohyppely and labyrintti – for lumisota and reaktio their README is the map
   - `assets/CATALOG.md` – emoji ideas, themes and sound names
 - `kit/` is shared by every game: import it with `@kit/...`, don't change it for
@@ -24,6 +25,7 @@ kids are waiting, so make the change quickly and keep the game playable.
   (taps: `touch.taps()` from `@kit/touch`).
 - Don't touch `gallery/`, `kit/`, `vite.config.ts`, `package.json` or the workflow.
 - Keep a game's code in its existing files; don't add new files to a game folder.
+  Only exception: pictures in `games/<peli>/kuvat/` (see `docs/recipes/kuva.md`).
 - A new game from scratch: copy a game folder, e.g.
   `cp -R games/tasohyppely games/lohikaarmepeli`, then change its `meta.json`.
   Folder names: lowercase letters a–z, no spaces or ä/ö.
@@ -59,8 +61,10 @@ kids are waiting, so make the change quickly and keep the game playable.
   realistic weapons, horror, or anything scary beyond mildly spooky.
 - No real people, brands or copyrighted characters. Make an original look-alike
   instead (a "ninja cat", not a famous plumber).
-- Graphics only from emoji, `@assets`, or shapes and pixel art drawn in code.
+- Graphics only from emoji, `assets/kuvat/`, SVG pictures you draw in
+  `games/<peli>/kuvat/`, or shapes and pixel art drawn in code.
   Never load anything from the internet and never add URLs.
+  SVG: shapes and gradients only – no `<image>`, `<script>`, `<text>` or links.
 - No free text input, chat, links or data collection in the game.
 - Never put names or personal details in the game, comments, commit messages
   or `meta.json`. Use the team name the group invents.

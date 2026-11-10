@@ -4,6 +4,7 @@
 
 - New look: `player1: { emoji: '🦖', facesLeft: true, ... }`. Animal emoji that face
   left on a Mac: 🐌 🐈 🐕 🐎 🦖 🐉 🐊 🐍 🐢 – set `facesLeft: true` for those.
+- An own drawing instead of an emoji: `emoji: 'kuvat/lohikaarme.svg'` – see `kuva.md`.
 - Bigger hero: `size: 1.3` (tiles). In the maze the hero is drawn bigger but still fits the corridors.
 - Faster: `speed` (tiles per second).
 

@@ -16,6 +16,7 @@ Everything in this game lives in four files; don't create new files.
 | --- | --- |
 | One player only ("yksinpeli") | `config.players: 1` – any keys control player 1 (the ⚙️ menu can switch it too) |
 | Different hero ("make the cat a dragon") | `config.player1.emoji` / `player2.emoji` (+ `facesLeft: true` for left-facing emoji) |
+| Own drawing ("draw a purple dragon") | an SVG in `kuvat/`, then `emoji: 'kuvat/name.svg'` – see `docs/recipes/kuva.md` (example: the slime `e`) |
 | Bigger / higher jump | `player1.jumpTiles` (3.3 → 5) |
 | Faster | `player1.speed` |
 | Double jump / flying / shooting from the start | `config.doubleJump`, `config.canFly`, `config.canShoot` |

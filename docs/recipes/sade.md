@@ -3,7 +3,7 @@
 **Rain things from the sky (platformer):** `config.rain = { thing: 'c', every: 0.5 }` –
 any letter from `config.things`. Rained things fall down, then move their own
 way, and vanish after 8 seconds. Rain enemies too: `thing: 'b'` (bats) or
-`thing: 'e'` (snails).
+`thing: 'e'` (slimes).
 
 **Spawn from code (both games):** `spawn('o', x, bottom)` (platformer, pixels) or
 `spawn('o', col, row)` (maze, tiles), e.g. on a timer in `update`.

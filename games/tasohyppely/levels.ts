@@ -4,7 +4,7 @@
 //   #    ground            =  platform you can jump through from below
 //   B    brick block       ^  spikes (hurt)        ~  lava (hurts)      I  ice 🧊 (slippery)
 //   o    star ⭐           c  candy 🍬            P  power-up 🍭 (double jump)
-//   e    snail 🐌 (stomp)  h  frog 🐸 (stomp)     b  bat 🦇 (hurts)
+//   e    slime (stomp)  h  frog 🐸 (stomp)     b  bat 🦇 (hurts)
 //   T    trampoline 🍄     D  dragon boss 🐉      F  finish flag 🚩
 //   (space) empty air
 //
