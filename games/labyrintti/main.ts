@@ -389,7 +389,7 @@ function update(dt: number) {
   // Adult keys: Shift+N next level, Shift+G god mode, Shift+R restart level
   if (input.keyPressed('KeyN', { shift: true })) { loadLevel((levelIndex + 1) % levels.length); return; }
   if (input.keyPressed('KeyG', { shift: true })) godMode = !godMode;
-  if (input.keyPressed('KeyR', { shift: true })) { loadLevel(levelIndex); return; }
+  if (input.keyPressed('KeyR', { shift: true })) { restartLevel(); return; }
 
   if (gameOver || gameWon) {
     if (input.player(1).jumpPressed || input.player(2).jumpPressed) restartGame();
@@ -418,13 +418,26 @@ function update(dt: number) {
   particles.update(dt);
 }
 
+/** Everything back to the very start: level 1, score 0, player 2 waits to join. */
 function restartGame() {
   score = 0;
   lives = config.lives;
   gameOver = false;
   gameWon = false;
+  godMode = false;
+  titleTime = 3;
+  for (const p of players) p.safeTime = 0;
+  players[1].active = false;
   dev.keep('maze-score', 0);
   loadLevel(0);
+}
+
+/** The current level from the start (score is kept). */
+function restartLevel() {
+  gameOver = false;
+  gameWon = false;
+  for (const p of players) p.safeTime = 0;
+  loadLevel(levelIndex);
 }
 
 // ---------------------------------------------------------------------------
@@ -514,4 +527,4 @@ function drawHud(ctx: CanvasRenderingContext2D) {
 // ---------------------------------------------------------------------------
 
 loadLevel(levelIndex);
-startGame({ width: W, height: H, update, draw });
+startGame({ width: W, height: H, update, draw, restartGame, restartLevel });

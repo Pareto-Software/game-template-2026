@@ -55,4 +55,6 @@ Everything in this game lives in four files; don't create new files.
 
 ## Adult keys
 
-Shift+N next level · Shift+G can't get hurt · Shift+R restart level · P pause · M mute
+⚙️ Asetukset (or Esc): start over, restart level, sound · Shift+N next level · Shift+G can't get hurt · Shift+R restart level · P pause · M mute
+
+The ⚙️ menu calls `restartGame` and `restartLevel` in `main.ts` (passed to `startGame`).

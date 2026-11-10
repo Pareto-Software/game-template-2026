@@ -44,6 +44,16 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) muted = !muted;
 });
 
+/** Turn all sounds off or on. Returns true when sounds are now off. */
+export function toggleMute(): boolean {
+  muted = !muted;
+  return muted;
+}
+
+export function isMuted(): boolean {
+  return muted;
+}
+
 function tone(
   type: OscillatorType, from: number, to: number, start: number, dur: number, vol: number,
 ) {

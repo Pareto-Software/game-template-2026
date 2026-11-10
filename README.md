@@ -6,7 +6,9 @@ to the gallery. Teams make their own copy, turn on GitHub Pages, and change the
 games by telling Claude Code what they want. Claude edits a game, checks it,
 commits and pushes; a GitHub Actions workflow publishes the site.
 
-Live version of this template: https://pareto-software.github.io/game-template-2026/
+**Live site (GitHub Pages):** https://pareto-software.github.io/game-template-2026/
+– updated automatically by the Julkaise workflow on every push to `main`.
+A team copy is published at `https://<organisation>.github.io/<repo-name>/`.
 
 ## Make your team's copy (once, before the day)
 
@@ -71,6 +73,9 @@ an existing one); it appears in the gallery and the build automatically.
 - Player 1: A / D move, W or Space jump, F action
 - Player 2: ← / → move, ↑ jump, Enter action (player 2 joins by pressing a key)
 - Gamepads 1 and 2 work too.
+- **⚙️ Asetukset** button (or Esc) in every game: start the whole game over
+  (level 1, score 0, players at the start), restart the current level, sound on/off.
+  **← Kaikki pelit** goes back to the gallery.
 - Adult keys: Shift+N next level, Shift+G can't get hurt, Shift+R restart level, P pause, M mute.
 
 ## Notes

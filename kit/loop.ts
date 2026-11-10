@@ -5,6 +5,7 @@
 
 import { input } from './input';
 import { fx } from './particles';
+import { addSettingsMenu } from './menu';
 
 export interface GameSetup {
   /** Logical width in pixels (default 960). */
@@ -15,6 +16,10 @@ export interface GameSetup {
   update(dt: number): void;
   /** Called once per animation frame, after the updates. */
   draw(ctx: CanvasRenderingContext2D): void;
+  /** "Aloita alusta" in the ⚙️ menu: back to the first level, score 0, everyone at the start. */
+  restartGame?: () => void;
+  /** "Tämä taso alusta" in the ⚙️ menu: the current level from the start. */
+  restartLevel?: () => void;
 }
 
 export interface RunningGame {
@@ -38,6 +43,10 @@ export function hitStop(ms: number) {
 /** Pause or continue the game. P toggles it too. */
 export function setPaused(value: boolean) {
   paused = value;
+}
+
+export function isPaused(): boolean {
+  return paused;
 }
 
 /**
@@ -80,6 +89,12 @@ export function startGame(setup: GameSetup): RunningGame {
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d')!;
   addGalleryLink();
+  addSettingsMenu({
+    restartGame: setup.restartGame,
+    restartLevel: setup.restartLevel,
+    setPaused,
+    isPaused,
+  });
 
   const fit = () => {
     const s = Math.min(innerWidth / width, innerHeight / height);
