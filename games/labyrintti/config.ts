@@ -60,6 +60,9 @@ export const config = {
   title: 'Juustolabyrintti',
   /** perus, talvi, avaruus, viidakko, laava or meri (see kit/themes.ts) */
   theme: 'perus' as ThemeName,
+  /** 1 = yksinpeli: one player, both A D W and the arrows work. 2 = kaksinpeli.
+   *  The ⚙️ menu can switch it too. */
+  players: 2 as 1 | 2,
 
   player1: { emoji: '🐭', speed: 5, size: 0.8 } as PlayerDef,
   player2: { emoji: '🐹', speed: 5, size: 0.8 } as PlayerDef,

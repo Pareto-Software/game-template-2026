@@ -3,6 +3,7 @@
 // Player 1: A / D move, W or Space jump (W also = up), S down, F action (shoot)
 // Player 2: ← / → move, ↑ jump (also = up), ↓ down, Enter or . action
 // Gamepad 1 → player 1, gamepad 2 → player 2 (stick or d-pad, A = jump, B/X = action).
+// Single-player mode (config.players: 1, or the ⚙️ menu): all of these control player 1.
 //
 // Keys are read by physical position (e.code), so the Finnish layout works.
 
@@ -96,9 +97,14 @@ function readPads() {
 const anyHeld = (codes: string[]) => codes.some((c) => held.has(c));
 const anyPressed = (codes: string[]) => codes.some((c) => pressedThisFrame.has(c));
 
-export const input = {
-  /** The current input of player 1 or 2 (keyboard + gamepad together). */
-  player(n: PlayerNumber): PlayerInput {
+const NOTHING: PlayerInput = { x: 0, y: 0, jump: false, jumpPressed: false, action: false, actionPressed: false };
+
+// Single-player mode: both key sets and both gamepads control player 1,
+// and player 2 gets no input. The choice made in the ⚙️ menu is remembered per game.
+const SINGLE_KEY = `pelipaja:${location.pathname}:singlePlayer`;
+let single = false;
+
+function readPlayer(n: PlayerNumber): PlayerInput {
     const k = KEYS[n];
     const pad = pads[n];
     let x = (anyHeld(k.right) ? 1 : 0) - (anyHeld(k.left) ? 1 : 0);
@@ -113,6 +119,40 @@ export const input = {
       action: anyHeld(k.action) || pad.action,
       actionPressed: anyPressed(k.action) || (pad.action && !padPrev[n].action),
     };
+}
+
+export const input = {
+  /** The current input of player 1 or 2 (keyboard + gamepad together). */
+  player(n: PlayerNumber): PlayerInput {
+    if (!single) return readPlayer(n);
+    if (n === 2) return NOTHING;
+    const a = readPlayer(1), b = readPlayer(2);
+    return {
+      x: a.x || b.x,
+      y: a.y || b.y,
+      jump: a.jump || b.jump,
+      jumpPressed: a.jumpPressed || b.jumpPressed,
+      action: a.action || b.action,
+      actionPressed: a.actionPressed || b.actionPressed,
+    };
+  },
+
+  /** True in single-player mode (one player, any keys). */
+  get singlePlayer(): boolean {
+    return single;
+  },
+
+  /** Switch single-player mode on or off (the ⚙️ menu does this). */
+  setSinglePlayer(value: boolean) {
+    single = value;
+    try { localStorage.setItem(SINGLE_KEY, value ? '1' : '2'); } catch {}
+  },
+
+  /** Called by startGame: the game's default, unless a choice was saved from the menu. */
+  initPlayers(count: 1 | 2) {
+    let saved: string | null = null;
+    try { saved = localStorage.getItem(SINGLE_KEY); } catch {}
+    single = saved !== null ? saved === '1' : count === 1;
   },
 
   /** True if this key (an e.code such as 'KeyN') was pressed during this frame. */

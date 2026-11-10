@@ -20,6 +20,9 @@ export interface GameSetup {
   restartGame?: () => void;
   /** "Tämä taso alusta" in the ⚙️ menu: the current level from the start. */
   restartLevel?: () => void;
+  /** 1 = single player (any keys control player 1), 2 = two players (default).
+   *  The ⚙️ menu can switch it; that choice is remembered. */
+  players?: 1 | 2;
 }
 
 export interface RunningGame {
@@ -89,6 +92,7 @@ export function startGame(setup: GameSetup): RunningGame {
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d')!;
   addGalleryLink();
+  input.initPlayers(setup.players ?? 2);
   addSettingsMenu({
     restartGame: setup.restartGame,
     restartLevel: setup.restartLevel,

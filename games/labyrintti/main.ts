@@ -183,6 +183,7 @@ function hurtPlayer(p: Player) {
 }
 
 function updatePlayer(p: Player, dt: number) {
+  if (p.n === 2 && input.singlePlayer) { p.active = false; return; } // single-player mode
   const inp = input.player(p.n);
   if (!p.active) {
     if (inp.jumpPressed || inp.x !== 0 || inp.y !== 0) {
@@ -515,9 +516,10 @@ function drawHud(ctx: CanvasRenderingContext2D) {
     level: `Taso ${levelIndex + 1}/${levels.length}${timeLeft}`,
     extra: left > 0 ? `${collectEmoji} ${left} jäljellä` : 'Maaliin! 🏁',
   });
-  if (!players[1].active) text(ctx, 'Pelaaja 2: paina nuolta', W - 16, H - 14, { size: 16, align: 'right' });
+  if (!players[1].active && !input.singlePlayer) text(ctx, 'Pelaaja 2: paina nuolta', W - 16, H - 14, { size: 16, align: 'right' });
   if (titleTime > 0 && levelIndex === 0) {
-    banner(ctx, W, H, config.title, 'Pelaaja 1: W A S D   ·   Pelaaja 2: nuolet', Math.min(1, titleTime));
+    const help = input.singlePlayer ? 'Liiku: W A S D tai nuolet' : 'Pelaaja 1: W A S D   ·   Pelaaja 2: nuolet';
+    banner(ctx, W, H, config.title, help, Math.min(1, titleTime));
   }
   if (levelDoneTime > 0) banner(ctx, W, H, 'Taso läpi! 🎉', '', Math.min(1, levelDoneTime * 2));
   if (gameWon) banner(ctx, W, H, 'Voitit pelin! 🏆', `Pisteet: ${score} · Paina välilyöntiä aloittaaksesi alusta`);
@@ -527,4 +529,4 @@ function drawHud(ctx: CanvasRenderingContext2D) {
 // ---------------------------------------------------------------------------
 
 loadLevel(levelIndex);
-startGame({ width: W, height: H, update, draw, restartGame, restartLevel });
+startGame({ width: W, height: H, update, draw, restartGame, restartLevel, players: config.players });

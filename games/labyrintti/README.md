@@ -15,6 +15,7 @@ Everything in this game lives in four files; don't create new files.
 
 | Kids ask for … | Change |
 | --- | --- |
+| One player only ("yksinpeli") | `config.players: 1` – any keys control player 1 (the ⚙️ menu can switch it too) |
 | Different hero | `config.player1.emoji` / `player2.emoji` (+ `facesLeft: true` for left-facing emoji) |
 | Faster / slower | `player1.speed`, or a monster's `speed` in `config.things` |
 | New monster / item | add a letter to `config.things` (`moves`: still, wander, chase, patrol), then put it into `levels.ts` |
@@ -50,6 +51,6 @@ Everything in this game lives in four files; don't create new files.
 
 ## Adult keys
 
-⚙️ Asetukset (or Esc): start over, restart level, sound · Shift+N next level · Shift+G can't get hurt · Shift+R restart level · P pause · M mute
+⚙️ Asetukset (or Esc): start over, restart level, one/two players, sound · Shift+N next level · Shift+G can't get hurt · Shift+R restart level · P pause · M mute
 
 The ⚙️ menu calls `restartGame` and `restartLevel` in `main.ts` (passed to `startGame`).

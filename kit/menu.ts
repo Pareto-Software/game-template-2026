@@ -3,11 +3,13 @@
 // Opens with the ⚙️ button or the Esc key and pauses the game while open:
 //   🔄 Aloita alusta       – back to level 1, score 0, everyone at the start
 //   ↩️ Tämä taso alusta    – the current level from the start
+//   👤 / 👥 Yksinpeli / kaksinpeli (any keys control player 1 in single-player mode)
 //   🔇 Äänet pois / päälle
 //   ▶️ Jatka peliä
 // A game gives the restart functions to startGame({ restartGame, restartLevel }).
 
 import { toggleMute, isMuted } from './sound';
+import { input } from './input';
 
 export interface MenuOptions {
   restartGame?: () => void;
@@ -51,6 +53,7 @@ export function addSettingsMenu(o: MenuOptions) {
     o.setPaused(true);
     panel.style.display = 'grid';
     soundButton.textContent = soundLabel();
+    playersButton.textContent = playersLabel();
     (box.querySelector('button') as HTMLButtonElement | null)?.focus();
   };
   const close = () => {
@@ -70,6 +73,11 @@ export function addSettingsMenu(o: MenuOptions) {
 
   if (o.restartGame) addButton('🔄 Aloita alusta', () => { close(); o.restartGame!(); });
   if (o.restartLevel) addButton('↩️ Tämä taso alusta', () => { close(); o.restartLevel!(); });
+  const playersLabel = () => (input.singlePlayer ? '👥 Vaihda kaksinpeliin' : '👤 Vaihda yksinpeliin');
+  const playersButton = addButton(playersLabel(), () => {
+    input.setSinglePlayer(!input.singlePlayer);
+    playersButton.textContent = playersLabel();
+  });
   const soundLabel = () => (isMuted() ? '🔈 Äänet päälle' : '🔇 Äänet pois');
   const soundButton = addButton(soundLabel(), () => { toggleMute(); soundButton.textContent = soundLabel(); });
   addButton('▶️ Jatka peliä', close);

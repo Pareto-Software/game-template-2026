@@ -72,9 +72,12 @@ an existing one); it appears in the gallery and the build automatically.
 
 - Player 1: A / D move, W or Space jump, F action
 - Player 2: ← / → move, ↑ jump, Enter action (player 2 joins by pressing a key)
+- Single player: `players: 1` in a game's `config.ts`, or ⚙️ → Vaihda yksinpeliin.
+  Then both key sets and both gamepads control player 1.
 - Gamepads 1 and 2 work too.
 - **⚙️ Asetukset** button (or Esc) in every game: start the whole game over
-  (level 1, score 0, players at the start), restart the current level, sound on/off.
+  (level 1, score 0, players at the start), restart the current level,
+  single player / two players, sound on/off.
   **← Kaikki pelit** goes back to the gallery.
 - Adult keys: Shift+N next level, Shift+G can't get hurt, Shift+R restart level, P pause, M mute.
 

@@ -226,6 +226,7 @@ function hurtPlayer(p: Player) {
 }
 
 function updatePlayer(p: Player, dt: number) {
+  if (p.n === 2 && input.singlePlayer) { p.active = false; return; } // single-player mode
   const inp = input.player(p.n);
   if (!p.active) {
     if (inp.jumpPressed || inp.x !== 0) {
@@ -681,7 +682,7 @@ function drawHud(ctx: CanvasRenderingContext2D) {
     score,
     lives: config.lives > 0 ? lives : undefined,
     level: `Taso ${levelIndex + 1}/${levels.length}`,
-    extra: players[1].active ? '' : 'Pelaaja 2: paina ↑',
+    extra: players[1].active || input.singlePlayer ? '' : 'Pelaaja 2: paina ↑',
   });
   // Boss health bar, when a boss is near
   const boss = things.find((t) => t.def.boss && Math.abs(t.x - (camX + W / 2)) < W);
@@ -690,7 +691,8 @@ function drawHud(ctx: CanvasRenderingContext2D) {
     drawEmoji(ctx, boss.def.emoji, W / 2 - 172, 59, 26);
   }
   if (titleTime > 0 && levelIndex === 0) {
-    banner(ctx, W, H, config.title, 'Pelaaja 1: A D + W   ·   Pelaaja 2: ← → + ↑', Math.min(1, titleTime));
+    const help = input.singlePlayer ? 'Liiku: A D tai ← →   ·   Hyppää: W, ↑ tai välilyönti' : 'Pelaaja 1: A D + W   ·   Pelaaja 2: ← → + ↑';
+    banner(ctx, W, H, config.title, help, Math.min(1, titleTime));
   }
   if (levelDoneTime > 0) banner(ctx, W, H, 'Taso läpi! 🎉', '', Math.min(1, levelDoneTime * 2));
   if (gameWon) banner(ctx, W, H, 'Voitit pelin! 🏆', `Pisteet: ${score} · Paina hyppyä aloittaaksesi alusta`);
@@ -700,4 +702,4 @@ function drawHud(ctx: CanvasRenderingContext2D) {
 // ---------------------------------------------------------------------------
 
 loadLevel(levelIndex);
-startGame({ width: W, height: H, update, draw, restartGame, restartLevel });
+startGame({ width: W, height: H, update, draw, restartGame, restartLevel, players: config.players });
