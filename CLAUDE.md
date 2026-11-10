@@ -8,7 +8,8 @@ kids are waiting, so make the change quickly and keep the game playable.
 ## Where you work
 - Every game is a folder in `games/`: `games/tasohyppely/` (platformer),
   `games/labyrintti/` (maze) and `games/lumisota/` (top-down snowball fight made
-  with Phaser 4.2.1 – use only Phaser 4 APIs there), plus any the team adds. The gallery page
+  with Phaser 4.2.1 – use only Phaser 4 APIs there), `games/reaktio/` (tapping game
+  for touch screens), plus any the team adds. The gallery page
   (`index.html` + `gallery/`) lists them all automatically from their `meta.json`.
 - Work in the game the kids are playing. If it isn't clear which one, ask once.
 - Read that game's `README.md` first: it maps which file and function handles what.
@@ -16,10 +17,11 @@ kids are waiting, so make the change quickly and keep the game playable.
   one-line change there or a new letter in `levels.ts`.
 - Look things up before inventing them:
   - `docs/recipes/` – how to do common requests (hahmo, vihollinen, kentta, ammus, sade);
-    they cover tasohyppely and labyrintti – for lumisota its README is the map
+    they cover tasohyppely and labyrintti – for lumisota and reaktio their README is the map
   - `assets/CATALOG.md` – emoji ideas, themes and sound names
 - `kit/` is shared by every game: import it with `@kit/...`, don't change it for
-  one game. Never write your own keyboard, gamepad, storage or sound code.
+  one game. Never write your own keyboard, gamepad, touch, storage or sound code
+  (taps: `touch.taps()` from `@kit/touch`).
 - Don't touch `gallery/`, `kit/`, `vite.config.ts`, `package.json` or the workflow.
 - Keep a game's code in its existing files; don't add new files to a game folder.
 - A new game from scratch: copy a game folder, e.g.
@@ -28,7 +30,8 @@ kids are waiting, so make the change quickly and keep the game playable.
 
 ## How to change a game
 - One small change per request. After every change the game must start, and
-  both players' controls must still work (A D W + Space + F, arrows + Enter, gamepads).
+  both players' controls must still work (A D W + Space + F, arrows + Enter, gamepads;
+  in reaktio: tapping).
 - Big idea? Do the first fun step now and suggest the next one.
 - Do not refactor, add tests, add libraries or explain code unless asked.
 - Keep code readable for kids: short functions, Finnish comments on the parts

@@ -4,6 +4,7 @@
 // scaled to fit the window. update(dt) runs at a fixed 60 steps per second.
 
 import { input } from './input';
+import { touch } from './touch';
 import { fx } from './particles';
 import { addGameChrome, stylePage } from './chrome';
 
@@ -67,6 +68,7 @@ export function startGame(setup: GameSetup): RunningGame {
   stylePage();
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d')!;
+  touch.attach(canvas, width, height);
   addGameChrome({
     restartGame: setup.restartGame,
     restartLevel: setup.restartLevel,
@@ -103,9 +105,11 @@ export function startGame(setup: GameSetup): RunningGame {
       let steps = 0;
       while (acc >= STEP && steps < 5) {
         input.beginFrame();
+        touch.beginFrame();
         setup.update(STEP);
         fx.update(STEP);
         input.endFrame();
+        touch.endFrame();
         acc -= STEP;
         t += STEP;
         steps++;
@@ -114,6 +118,8 @@ export function startGame(setup: GameSetup): RunningGame {
     } else {
       input.beginFrame();
       input.endFrame();
+      touch.beginFrame();
+      touch.endFrame();
     }
 
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
