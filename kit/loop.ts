@@ -5,7 +5,7 @@
 
 import { input } from './input';
 import { fx } from './particles';
-import { addSettingsMenu } from './menu';
+import { addGameChrome, stylePage } from './chrome';
 
 export interface GameSetup {
   /** Logical width in pixels (default 960). */
@@ -52,25 +52,6 @@ export function isPaused(): boolean {
   return paused;
 }
 
-/**
- * A small "back to all games" button in the bottom-left corner.
- * Games live in games/<name>/, so the gallery is two folders up.
- */
-function addGalleryLink() {
-  const a = document.createElement('a');
-  a.href = '../../';
-  a.textContent = '← Kaikki pelit';
-  a.title = 'Takaisin galleriaan';
-  Object.assign(a.style, {
-    position: 'fixed', left: '12px', bottom: '12px', zIndex: '10',
-    padding: '8px 14px', borderRadius: '999px', background: 'rgba(0,0,0,0.55)',
-    color: '#fff', font: 'bold 15px system-ui, sans-serif', textDecoration: 'none',
-  });
-  // Don't let the link keep keyboard focus: the keys belong to the game.
-  a.addEventListener('focus', () => a.blur());
-  document.body.appendChild(a);
-}
-
 export function startGame(setup: GameSetup): RunningGame {
   const width = setup.width ?? 960;
   const height = setup.height ?? 540;
@@ -83,19 +64,13 @@ export function startGame(setup: GameSetup): RunningGame {
   canvas.style.margin = 'auto';
   canvas.style.imageRendering = 'auto';
   canvas.tabIndex = 0;
-  document.body.style.margin = '0';
-  document.body.style.background = '#111';
-  document.body.style.height = '100vh';
-  document.body.style.display = 'grid';
-  document.body.style.placeItems = 'center';
-  document.body.style.overflow = 'hidden';
+  stylePage();
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d')!;
-  addGalleryLink();
-  input.initPlayers(setup.players ?? 2);
-  addSettingsMenu({
+  addGameChrome({
     restartGame: setup.restartGame,
     restartLevel: setup.restartLevel,
+    players: setup.players,
     setPaused,
     isPaused,
   });

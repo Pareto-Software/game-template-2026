@@ -34,6 +34,18 @@ function render(char: string, px: number, white: boolean): HTMLCanvasElement {
   return c;
 }
 
+/** An emoji drawn on its own canvas (1.2 × px square), e.g. for a Phaser texture. */
+export function emojiCanvas(char: string, px: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = c.height = Math.ceil(px * 1.2);
+  const g = c.getContext('2d')!;
+  g.font = `${px}px ${FONT}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(char, c.width / 2, c.height / 2 + px * 0.07);
+  return c;
+}
+
 export interface EmojiOptions {
   flipX?: boolean;
   rotate?: number;

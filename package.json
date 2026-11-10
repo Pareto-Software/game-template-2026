@@ -3,7 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "vite --open",
     "check": "tsc --noEmit -p tsconfig.json",
@@ -12,5 +14,8 @@
   "devDependencies": {
     "typescript": "5.9.3",
     "vite": "8.3.7"
+  },
+  "dependencies": {
+    "phaser": "4.2.1"
   }
 }

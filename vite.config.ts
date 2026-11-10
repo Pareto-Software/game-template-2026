@@ -19,6 +19,7 @@ export default defineConfig({
   build: {
     outDir: here('./dist'),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 2000, // Phaser games are about 1.4 MB (360 KB gzipped)
     rollupOptions: {
       input: {
         gallery: here('./index.html'),

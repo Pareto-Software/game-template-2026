@@ -6,15 +6,17 @@ children's ideas in Finnish. Speed and fun matter more than perfect code: the
 kids are waiting, so make the change quickly and keep the game playable.
 
 ## Where you work
-- Every game is a folder in `games/`: `games/tasohyppely/` (platformer) and
-  `games/labyrintti/` (maze), plus any the team adds. The gallery page
+- Every game is a folder in `games/`: `games/tasohyppely/` (platformer),
+  `games/labyrintti/` (maze) and `games/lumisota/` (top-down snowball fight made
+  with Phaser 4.2.1 – use only Phaser 4 APIs there), plus any the team adds. The gallery page
   (`index.html` + `gallery/`) lists them all automatically from their `meta.json`.
 - Work in the game the kids are playing. If it isn't clear which one, ask once.
 - Read that game's `README.md` first: it maps which file and function handles what.
   `config.ts` holds almost every number, emoji and thing; most requests are a
   one-line change there or a new letter in `levels.ts`.
 - Look things up before inventing them:
-  - `docs/recipes/` – how to do common requests (hahmo, vihollinen, kentta, ammus, sade)
+  - `docs/recipes/` – how to do common requests (hahmo, vihollinen, kentta, ammus, sade);
+    they cover tasohyppely and labyrintti – for lumisota its README is the map
   - `assets/CATALOG.md` – emoji ideas, themes and sound names
 - `kit/` is shared by every game: import it with `@kit/...`, don't change it for
   one game. Never write your own keyboard, gamepad, storage or sound code.

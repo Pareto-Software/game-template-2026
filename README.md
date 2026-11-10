@@ -59,7 +59,8 @@ Click the game window after sending a request so the kids' key presses go to the
 | `index.html`, `gallery/` | The gallery page: a card per game, read from each game's `meta.json`. |
 | `games/tasohyppely/` | Platformer: 3 levels, power-ups, a dragon boss. |
 | `games/labyrintti/` | Maze: 2 levels, critters, a key and doors. |
-| `kit/` | Shared engine: loop, input (2 players + gamepads), sound, sprites, physics, particles, ui, themes. |
+| `games/lumisota/` | Top-down snowball fight made with Phaser 4.2.1: waves of snowmen and a boss, or player vs player. |
+| `kit/` | Shared engine: loop, input (2 players + gamepads), sound, sprites, physics, particles, ui, themes, menu; `kit/phaser.ts` for Phaser games. |
 | `docs/recipes/` | Short how-tos for common requests. |
 | `assets/CATALOG.md` | Emoji ideas, themes, sound names. |
 | `CLAUDE.md` | Rules for the agent (content, saving, undo). |
