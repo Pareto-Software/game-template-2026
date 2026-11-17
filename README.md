@@ -94,17 +94,6 @@ cd peli-kettu
 npm ci
 ```
 
-Set a neutral git author for this folder only, so no personal names end up in
-the public repo (your other projects keep your own name):
-
-```bash
-git config user.name "Pelipaja"
-```
-
-```bash
-git config user.email "peli@pelipaja.invalid"
-```
-
 Then start Claude Code there once: run `claude`, sign in with your Claude account
 and answer **Yes** to "Do you trust the files in this folder?".
 
