@@ -10,47 +10,88 @@ commits and pushes; a GitHub Actions workflow publishes the site.
 – updated automatically by the Julkaise workflow on every push to `main`.
 A team copy is published at `https://<organisation>.github.io/<repo-name>/`.
 
-## Make your team's copy (once, before the day)
+## Team lead guide (do this before the day, about 30 minutes)
 
-1. On this repo: **Use this template → Create a new repository**.
-   - Owner: the event organisation. Name: `peli-<table animal>`, e.g. `peli-kettu`.
-   - **Public** (private repos can't publish Pages on GitHub Free).
-2. In the new repo: **Settings → Pages → Source: GitHub Actions**.
-3. **Actions → Julkaise → Run workflow.** About a minute later the site is at
-   `https://<organisation>.github.io/peli-kettu/`.
-4. On the laptop:
+You need: a Mac, a GitHub account in the Pareto-Software organisation, and a
+Claude seat (claude.ai login). Pick a team name, e.g. `kettu`.
 
-```bash
-gh auth login
-gh auth setup-git
-gh repo clone <organisation>/peli-kettu ~/pelipaja/peli-kettu
-cd ~/pelipaja/peli-kettu
-npm ci
-```
+### 1. Laptop (once)
 
-## Every morning
-
-Two Terminal tabs in the team folder:
+Install the tools in Terminal ([Homebrew](https://brew.sh) first if you don't have it):
 
 ```bash
-npm run dev
+brew install node git gh
 ```
 
 ```bash
-claude
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-The first opens the gallery in the default browser; the second is Claude Code.
-Click the game window after sending a request so the kids' key presses go to the game.
+Check: `node -v` shows **v24 or newer**. Then set the git author, so no
+personal names end up in the public repo:
 
-## Laptop requirements
+```bash
+git config --global user.name "Pelipaja" && git config --global user.email "peli@pelipaja.invalid"
+```
 
-- macOS with Chrome set as the default browser, Node 24 (`.nvmrc`), git,
-  GitHub CLI, Claude Code.
-- Git author: `git config --global user.name "Pelipaja"` and
-  `git config --global user.email "peli@pelipaja.invalid"`.
-- Run `claude` once in the team folder: sign in with the adult's Pareto seat and
-  accept the folder trust prompt.
+Log GitHub in (choose GitHub.com → HTTPS → Login with a web browser):
+
+```bash
+gh auth login && gh auth setup-git
+```
+
+Chrome as the default browser is recommended (the game opens there).
+
+### 2. The team's own copy of the games (once)
+
+1. Open https://github.com/Pareto-Software/game-template-2026 →
+   **Use this template → Create a new repository**.
+   - Owner: **Pareto-Software** · Name: **`peli-kettu`** (your team name) · **Public**
+2. In the new repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. **Actions** tab → **Julkaise** → **Run workflow** → **Run workflow**.
+   Wait for the green tick (about a minute).
+4. The games are now live at **https://pareto-software.github.io/peli-kettu/**.
+   From now on every push to `main` updates the page automatically.
+
+### 3. Get it on the laptop (once)
+
+```bash
+gh repo clone Pareto-Software/peli-kettu ~/pelipaja/peli-kettu && cd ~/pelipaja/peli-kettu && npm ci
+```
+
+Then start Claude Code there once: run `claude`, sign in with your Claude seat
+and answer **Yes** to "Do you trust the files in this folder?".
+
+### 4. Test run (5 minutes)
+
+1. Open two Terminal tabs in `~/pelipaja/peli-kettu`. In the first: `npm run dev`
+   (the gallery opens in the browser). In the second: `claude`.
+2. Tell Claude: *"Tasohyppelyssä kissan tilalle lohikäärme"*.
+3. The game reloads with the change. Claude saves and publishes it; about a
+   minute later it's also on the team's web page.
+
+Claude asks permission before it edits files or runs commands. To keep the
+kids from waiting: press **Shift+Tab** until it shows **accept edits on**, and the
+first time it asks to run `npm run check` or `git …`, choose
+**"Yes, and don't ask again"**.
+
+### On the day
+
+- Two Terminal tabs as in the test run: `npm run dev` and `claude`.
+- Type or dictate the kids' ideas in Finnish. One idea at a time works best.
+- Click the game window after sending a request, so the key presses go to the game.
+- **"Kumoa"** undoes the last change. **"Peli on rikki"** makes Claude find and fix the error.
+- Adult keys in every game: ⚙️ / Esc menu (start over, one or two players, sound),
+  Shift+N next level, Shift+G can't get hurt, P pause, M mute.
+
+### If something goes wrong
+
+| Problem | Fix |
+| --- | --- |
+| The web page shows 404 | Step 2.2 (Pages source) was skipped, or the workflow hasn't run yet: do 2.3. |
+| `git push` is rejected | Tell Claude "push epäonnistui"; it pulls and pushes again. |
+| `npm run dev` says the port is in use | Close the old Terminal tab, or use the URL it prints. |
+| Anything else | Call the technical lead. |
 
 ## What's in here
 
