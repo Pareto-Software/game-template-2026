@@ -10,80 +10,48 @@ commits and pushes; a GitHub Actions workflow publishes the site.
 – updated automatically by the Julkaise workflow on every push to `main`.
 A team copy is published at `https://<organisation>.github.io/<repo-name>/`.
 
-## Team lead guide (do this before the day, about 30 minutes)
-
-Pick a team name, e.g. `kettu`.
+## Team lead guide (before the day, about 30 minutes)
 
 ### 1. Requirements
 
 **Accounts**
 
-- A **GitHub account** that is a member of the **Pareto-Software** organisation
-  (it must be allowed to create repositories there).
-- A **Claude account with Claude Code access** (your Pareto Claude seat).
+- GitHub account, member of **Pareto-Software**, allowed to create repositories.
+- Claude account with Claude Code access (your Pareto Claude seat).
 
-**Laptop:** macOS, Windows 10/11 or Linux, with internet access and these installed:
+**Laptop:** macOS, Windows or Linux with:
 
-| Tool | Version | Why |
+| Tool | Version | Notes |
 | --- | --- | --- |
-| **Node.js** (includes npm) | 24 or newer (the LTS is fine) | runs the game locally and builds it |
-| **Git** | any recent | saves and publishes every change |
-| **GitHub CLI** (`gh`) | any recent | logs git in to GitHub, clones the repo |
-| **Claude Code** | latest | the AI that edits the games |
-| **Google Chrome** (recommended as default browser) | latest | the game opens there; any modern browser works |
-| A **colour emoji font** | – | the games draw everything with emoji (built in on macOS and Windows) |
+| Node.js | 24 or newer | includes npm |
+| Git | recent | must be able to push to GitHub (see below) |
+| Claude Code | latest | on Windows it needs Git for Windows |
+| Browser | recent | Chrome recommended |
+| GitHub CLI (`gh`) | optional | easiest way to log git in to GitHub |
+| Emoji font | – | built in on macOS and Windows; Linux: e.g. `fonts-noto-color-emoji` |
 
-How to install them:
+Install with your usual package manager or each tool's official installer.
 
-- **macOS:** with [Homebrew](https://brew.sh): `brew install node git gh`.
-  Claude Code: `curl -fsSL https://claude.ai/install.sh | bash`.
-- **Windows:** from PowerShell: `winget install OpenJS.NodeJS.LTS Git.Git GitHub.cli`.
-  Claude Code: `irm https://claude.ai/install.ps1 | iex`. Git for Windows is
-  required by Claude Code, so install Git first. Use **Git Bash** or **PowerShell**
-  as the terminal.
-- **Linux:** Node.js 24 from [nodejs.org](https://nodejs.org) or your distribution
-  (check the version), `git` and `gh` from the package manager
-  ([GitHub CLI install](https://github.com/cli/cli#installation)), and an emoji font
-  (e.g. `fonts-noto-color-emoji` on Debian/Ubuntu). Claude Code:
-  `curl -fsSL https://claude.ai/install.sh | bash`.
+**Git login to GitHub** – one of:
 
-If an install command doesn't work, use the tool's official installer instead;
-only the versions in the table matter.
+- **GitHub CLI:** `gh auth login`, then `gh auth setup-git`.
+- **Windows:** nothing to do; Git for Windows asks you to log in on the first clone.
+- **SSH key** already on your GitHub account: clone with the SSH address instead.
 
-**Check** in a new terminal window: `node -v` (v24 or newer), `git --version`,
-`gh --version` and `claude --version` all print a version.
+### 2. Team repo and publishing
 
-**One-time setting:** log GitHub in (choose GitHub.com → HTTPS → Login with a web browser), then let
-git use that login:
+1. https://github.com/Pareto-Software/game-template-2026 → **Use this template →
+   Create a new repository**. Owner **Pareto-Software**, name `peli-<team>`
+   (e.g. `peli-kettu`), **Public**.
+2. New repo → **Settings → Pages → Source: GitHub Actions**.
+3. **Actions → Julkaise → Run workflow**. Wait for the green tick (about a minute).
+4. The games are live at `https://pareto-software.github.io/peli-<team>/`.
+   Every push to `main` updates the page automatically.
+
+### 3. Laptop setup
 
 ```bash
-gh auth login
-```
-
-```bash
-gh auth setup-git
-```
-
-The games are made and tested on macOS. On Windows and Linux they work the same,
-but emoji look a little different.
-
-### 2. The team's own copy of the games (once)
-
-1. Open https://github.com/Pareto-Software/game-template-2026 →
-   **Use this template → Create a new repository**.
-   - Owner: **Pareto-Software** · Name: **`peli-kettu`** (your team name) · **Public**
-2. In the new repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. **Actions** tab → **Julkaise** → **Run workflow** → **Run workflow**.
-   Wait for the green tick (about a minute).
-4. The games are now live at **https://pareto-software.github.io/peli-kettu/**.
-   From now on every push to `main` updates the page automatically.
-
-### 3. Get it on the laptop (once)
-
-In a terminal, in the folder where you keep projects (any folder works):
-
-```bash
-gh repo clone Pareto-Software/peli-kettu
+git clone https://github.com/Pareto-Software/peli-kettu.git
 ```
 
 ```bash
@@ -94,38 +62,33 @@ cd peli-kettu
 npm ci
 ```
 
-Then start Claude Code there once: run `claude`, sign in with your Claude account
-and answer **Yes** to "Do you trust the files in this folder?".
+Run `claude` once in that folder: sign in and answer **Yes** to trusting the folder.
 
-### 4. Test run (5 minutes)
+### 4. Test run
 
-1. Open two terminal tabs or windows in the `peli-kettu` folder. In the first: `npm run dev`
-   (the gallery opens in the browser). In the second: `claude`.
+1. Two terminals in the team folder: `npm run dev` (opens the games in the
+   browser) and `claude`.
 2. Tell Claude: *"Tasohyppelyssä kissan tilalle lohikäärme"*.
-3. The game reloads with the change. Claude saves and publishes it; about a
-   minute later it's also on the team's web page.
+3. The game changes right away; the web page about a minute later.
 
-Claude asks permission before it edits files or runs commands. To keep the
-kids from waiting: press **Shift+Tab** until it shows **accept edits on**, and the
-first time it asks to run `npm run check` or `git …`, choose
-**"Yes, and don't ask again"**.
+To avoid approval prompts: press **Shift+Tab** until **accept edits on** shows,
+and answer **"Yes, and don't ask again"** when Claude first runs `npm` or `git`.
 
 ### On the day
 
-- Two terminal tabs as in the test run: `npm run dev` and `claude`.
-- Type or dictate the kids' ideas in Finnish. One idea at a time works best.
-- Click the game window after sending a request, so the key presses go to the game.
-- **"Kumoa"** undoes the last change. **"Peli on rikki"** makes Claude find and fix the error.
-- Adult keys in every game: ⚙️ / Esc menu (start over, one or two players, sound),
-  Shift+N next level, Shift+G can't get hurt, P pause, M mute.
+- Start `npm run dev` and `claude` as in the test run.
+- Type the kids' ideas in Finnish, one at a time. Click the game afterwards so
+  the keys go to it.
+- **"Kumoa"** undoes the last change, **"Peli on rikki"** fixes errors.
+- Adult keys: ⚙️ / Esc menu, Shift+N next level, Shift+G can't get hurt, P pause, M mute.
 
-### If something goes wrong
+### Problems
 
 | Problem | Fix |
 | --- | --- |
-| The web page shows 404 | Step 2.2 (Pages source) was skipped, or the workflow hasn't run yet: do 2.3. |
-| `git push` is rejected | Tell Claude "push epäonnistui"; it pulls and pushes again. |
-| `npm run dev` says the port is in use | Close the old terminal tab, or use the URL it prints. |
+| Web page shows 404 | Do steps 2.2 and 2.3. |
+| `git push` fails with a login error | Set up the git login (step 1). |
+| `git push` is rejected | Tell Claude "push epäonnistui". |
 | Anything else | Call the technical lead. |
 
 ## What's in here
