@@ -124,6 +124,11 @@ an existing one); it appears in the gallery and the build automatically.
 
 ## Notes
 
+- **Avaruuskelkka** uses Firebase (project `avaruuskelkka`, Realtime Database in
+  europe-west1, anonymous sign-in). Web config: `kit/firebase-config.ts`; rules:
+  `database.rules.json`, deployed with `npx firebase-tools deploy --only database`
+  (needs `npx firebase-tools login` with an account on the project).
+
 - `npm run check` type-checks; `npm run build` never does, so a type error can't
   block publishing.
 - In development, browser errors go to `virheet.log` (emptied on every page

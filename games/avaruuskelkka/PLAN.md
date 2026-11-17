@@ -9,7 +9,7 @@ flies the ship from the home base to a far-away destination planet. The game
 Made for the "Lapsi töihin" day: kids (8–13) change it by telling Claude their
 ideas, so almost everything they'd want to change lives in `config.ts`.
 
-Status: **plan – not started.** Open decisions are marked **❓**.
+Status: **phase 0 done** (Firebase, rules, `kit/firebase.ts`) – next: phase 1 (lobby). Open decisions are marked **❓**.
 
 ---
 
@@ -146,14 +146,14 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 ## 4. Firebase setup (CLI, done once)
 1. Adult runs `! npx firebase-tools login` in this session.
 2. ✅ Project **`avaruuskelkka`** (made in the console; the CLI got 403 on `addFirebase`). Web app `1:1039979419245:web:545bf2c85c188974be5164` ✅
-3. Create Realtime Database instance in **europe-west1**.
-4. Enable **Anonymous** sign-in (Console → Authentication; the CLI can't fully do this, so this is one console click).
-5. `npx firebase-tools apps:create web` → copy the config to `kit/firebase-config.ts`.
-6. `npx firebase-tools deploy --only database` (rules).
+3. ✅ Realtime Database `avaruuskelkka-default-rtdb` in **europe-west1** (made in the console).
+4. ✅ Enable **Anonymous** sign-in (Console → Authentication; the CLI can't fully do this, so this is one console click).
+5. ✅ `npx firebase-tools apps:create web` → copy the config to `kit/firebase-config.ts`.
+6. ✅ `npx firebase-tools deploy --only database` (rules; verified live: 18 allow/deny checks pass).
 7. Console: restrict the API key to the GitHub Pages domain + `localhost` (optional hardening).
 
 ## 5. Execution phases (each ends playable + pushed)
-0. **Foundation**: Firebase project, rules, `kit/firebase.ts`, `package.json`, CLAUDE.md exception.
+0. ✅ **Foundation**: Firebase project, rules, `kit/firebase.ts`, `package.json`, CLAUDE.md exception.
 1. **Lobby**: room create/join, QR code, station picking, presence, `?testi` debug view.
 2. **First flight** ⭐ first playable: simulation loop, main-screen map, Helm steers to destination, arrival screen. Other stations on autopilot.
 3. **Danger**: Tactical + Engineering + hull/energy; asteroid & pirate events.
