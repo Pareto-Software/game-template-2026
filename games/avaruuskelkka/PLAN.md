@@ -72,6 +72,23 @@ Status: **phase 1 done** (lobby, QR, stations, `?testi`) – next: phase 2 (firs
 slowly and sometimes badly, so the ship always moves even with 2 players.
 With 9–10 players, a second player can join an already taken station (shared station).
 
+### Look & feel: Star Trek parody 🖖
+The whole game is **Star Trek-themed, tongue in cheek**: a goofy, slightly chaotic
+starship bridge for kids. Messy and over the top is welcome.
+- **Main screen = the bridge viewscreen**: framed like a big screen on the bridge, with
+  stars streaking past at warp, a "PUNAINEN HÄLYTYS" mode (red flashing, siren), and
+  dramatic zoom-ins when aliens call.
+- **Phones = LCARS-style consoles**: black background, rounded pill/elbow panels in
+  orange, peach, lilac and blue, chunky buttons with silly numbers ("47-B"), beeps on tap.
+- **Language**: parody bridge jargon in Finnish: "Tehkää niin!", "Warp-nopeus!",
+  "Kilvet ylös!", "Kapteeni, en pysty enempään!", "Säteilytä minut ylös!", stardate ("tähtipäivä").
+- **Mess allowed**: sparks flying from consoles when hit, crew wobbling, alarms beeping,
+  fake error codes, a space cat on the bridge.
+- **Original, not copied** (CLAUDE.md content rules): no "Star Trek", "Starfleet",
+  "Enterprise", delta badge, or real characters/species. Own goofy versions instead:
+  e.g. ship "USS Avaruuskelkka", a badge of our own shape, aliens like the
+  "Möhköttäjät" or "Pörröpäät".
+
 ### Content (kid-safe)
 Cartoon only: lasers go "bonk", pirates are silly, asteroids crumble into sparkles,
 aliens are friendly-weird. Emoji graphics + shapes drawn in code. No text input,
