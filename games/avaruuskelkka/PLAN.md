@@ -31,6 +31,9 @@ Status: **plan – not started.** Open decisions are marked **❓**.
 | Dev testing | "Simulated phones" debug view: main screen + several station iframes on one computer |
 | Hosting | GitHub Pages via the existing `julkaise.yml` (no changes needed) |
 | UI language | Finnish |
+| Engine | **Phaser 4.2.1** for the main screen (same patterns as lumisota); **plain HTML/CSS** buttons for the phones |
+| QR code | `qrcode` npm package (added with `firebase`) |
+| Mission start | Both: the Captain's phone **and** the main-screen "Aloita" button |
 
 ## 2. The game
 
@@ -38,7 +41,7 @@ Status: **plan – not started.** Open decisions are marked **❓**.
 1. **Lobby (Aula)**: the main screen shows the ship, QR code, room code and the 8 station
    cards (taken / free / "autopilotti"). Phones scan → pick a free station → see
    "Odota kapteenia…".
-2. **Lähtö**: the Captain's phone (or the main-screen button if nobody is Captain) starts the mission.
+2. **Lähtö**: the Captain's phone or the main-screen "Aloita" button starts the mission.
 3. **Matka**: the route is a chain of **sectors** (e.g. 5). Each sector has a few
    **events** (asteroid field, space pirates, alien contact, nebula, broken
    engine, friendly space whale…). Stations solve them together, by talking out loud.
@@ -131,7 +134,7 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 | `PLAN.md` | This file |
 
 ### Other repo changes
-- `package.json`: add `firebase`. Root: `firebase.json`, `.firebaserc`, `database.rules.json`.
+- `package.json`: add `firebase` and `qrcode` (+ `@types/qrcode` dev). Root: `firebase.json`, `.firebaserc`, `database.rules.json`.
 - `kit/firebase.ts`, `kit/firebase-config.ts`.
 - `CLAUDE.md`: an **Avaruuskelkka exception** section: Firebase only via `@kit/firebase`;
   network access to Firebase allowed; QR code of the game's own address allowed;
@@ -167,8 +170,5 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 - **Local dev hits the real database** (no emulator): fine, rooms are separate and auto-cleaned.
 
 ## 7. Open decisions ❓
-1. **Engine**: recommendation is **Phaser 4.2.1 for the main screen** (tweens, particles, camera; same as lumisota) and **plain HTML/CSS buttons for the phones** (big touch targets, easy to restyle). Alternative: kit canvas loop for the main screen.
-2. **QR code generation**: add the small `qrcode` npm package (recommended), or write a minimal QR encoder into `kit/`.
-3. **Firebase project id / Google account** that owns it.
-4. Exact **sector & event list** for the first route (proposal comes in phase 2).
-5. Should the Captain's phone start the mission, or the main-screen button, or both? (Plan says: both.)
+1. **Firebase project id / Google account** that owns it.
+2. Exact **sector & event list** for the first route (proposal comes in phase 2).
