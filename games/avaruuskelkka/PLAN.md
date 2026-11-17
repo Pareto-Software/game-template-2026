@@ -145,7 +145,7 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 
 ## 4. Firebase setup (CLI, done once)
 1. Adult runs `! npx firebase-tools login` in this session.
-2. `npx firebase-tools projects:create <id>` (e.g. `pareto-avaruuskelkka`) **❓ project id/owner**
+2. ✅ Project **`avaruuskelkka`** (made in the console; the CLI got 403 on `addFirebase`). Web app `1:1039979419245:web:545bf2c85c188974be5164` ✅
 3. Create Realtime Database instance in **europe-west1**.
 4. Enable **Anonymous** sign-in (Console → Authentication; the CLI can't fully do this, so this is one console click).
 5. `npx firebase-tools apps:create web` → copy the config to `kit/firebase-config.ts`.
@@ -170,5 +170,4 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 - **Local dev hits the real database** (no emulator): fine, rooms are separate and auto-cleaned.
 
 ## 7. Open decisions ❓
-1. **Firebase project id / Google account** that owns it.
-2. Exact **sector & event list** for the first route (proposal comes in phase 2).
+1. Exact **sector & event list** for the first route (proposal comes in phase 2).
