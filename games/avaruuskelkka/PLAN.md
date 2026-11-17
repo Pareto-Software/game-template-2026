@@ -9,7 +9,7 @@ flies the ship from the home base to a far-away destination planet. The game
 Made for the "Lapsi töihin" day: kids (8–13) change it by telling Claude their
 ideas, so almost everything they'd want to change lives in `config.ts`.
 
-Status: **phase 1 done** (lobby, QR, stations, `?testi`) – next: phase 2 (first flight). Open decisions are marked **❓**.
+Status: **phase 2 done** (first flight, console look) – next: phase 3 (danger). Open decisions are marked **❓**.
 
 ---
 
@@ -175,7 +175,7 @@ Also `?liity` = number-button pad for typing the room code without the QR code.
 ## 5. Execution phases (each ends playable + pushed)
 0. ✅ **Foundation**: Firebase project, rules, `kit/firebase.ts`, `package.json`, CLAUDE.md exception.
 1. ✅ **Lobby**: room create/join, QR code, station picking, presence, `?testi` debug view.
-2. **First flight** ⭐ first playable: simulation loop, main-screen map, Helm steers to destination, arrival screen. Other stations on autopilot.
+2. ✅ **First flight** ⭐ first playable: simulation loop, main-screen map, Helm steers to destination, arrival screen. Other stations on autopilot.
 3. **Danger**: Tactical + Engineering + hull/energy; asteroid & pirate events.
 4. **Discovery**: Science (hidden things) + Captain (route choices, red alert).
 5. **People**: Comms (emoji aliens) + Ops (alerts, tractor beam) + Counselor (morale).
@@ -190,4 +190,22 @@ Also `?liity` = number-button pad for typing the room code without the QR code.
 - **Local dev hits the real database** (no emulator): fine, rooms are separate and auto-cleaned.
 
 ## 7. Open decisions ❓
-1. Exact **sector & event list** for the first route (proposal comes in phase 2).
+1. Approve the **sector & event list** below (section 8).
+
+## 8. Route & events (proposal – phases 3–5 build these)
+
+Route (in `config.route`): 🛰️ Kotitelakka → 🧀 Juustosumu → 🪨 Kivikaista →
+👾 Pörröpäiden asema → 🐋 Avaruusvalaan laulupaikka → 🪐 Planeetta Kotikolo.
+Phase 2 flight: about 75 s on autopilot. Events should bring a round to 5–10 min.
+
+| Where | Event | Who solves it | Phase |
+| --- | --- | --- | --- |
+| Anywhere | 🪨 Kivisade: asteroids fly at the ship | Ohjaus dodges, Taktiikka bonks them, Kilvet soften hits | 3 |
+| Kivikaista | 🪨 Big asteroid field | Ohjaus + Taktiikka; Konehuone shifts energy to shields | 3 |
+| Anywhere | 🏴 Möhköttäjät (silly cartoon pirates) throw space pies 🥧 | Taktiikka + Kilvet; Kapteeni calls PUNAINEN HÄLYTYS | 3 |
+| After hits | 💥 Sparks, broken engine / toilet | Konehuone repairs (tap the sparks), Operaatiot assigns | 3 / 5 |
+| Juustosumu | 🌫️ Fog hides everything | Tiede scans: shows the way + a secret wormhole shortcut 🌀 | 4 |
+| Junctions | 🧭 Two routes: short & dangerous / long & calm | Kapteeni chooses | 4 |
+| Pörröpäiden asema | 👾 Aliens call in emoji | Viestintä picks the right emoji reply → they give fuel | 5 |
+| Laulupaikka | 🐋 Space whale sings, crew gets sleepy | Neuvonantaja keeps morale up (rhythm game) | 5 |
+| Anywhere | 🐈 The space cat walks on a console | Operaatiot catches it | 5 |
