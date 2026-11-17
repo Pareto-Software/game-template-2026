@@ -9,7 +9,7 @@ flies the ship from the home base to a far-away destination planet. The game
 Made for the "Lapsi töihin" day: kids (8–13) change it by telling Claude their
 ideas, so almost everything they'd want to change lives in `config.ts`.
 
-Status: **phase 0 done** (Firebase, rules, `kit/firebase.ts`) – next: phase 1 (lobby). Open decisions are marked **❓**.
+Status: **phase 1 done** (lobby, QR, stations, `?testi`) – next: phase 2 (first flight). Open decisions are marked **❓**.
 
 ---
 
@@ -133,6 +133,9 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 | `asemat.ts` | Phone UI: one small function per station |
 | `PLAN.md` | This file |
 
+Phone colour clashes (two phones joining at once) are fixed on the phones: the later uid picks a free colour.
+Also `?liity` = number-button pad for typing the room code without the QR code.
+
 ### Other repo changes
 - `package.json`: add `firebase` and `qrcode` (+ `@types/qrcode` dev). Root: `firebase.json`, `.firebaserc`, `database.rules.json`.
 - `kit/firebase.ts`, `kit/firebase-config.ts`.
@@ -154,7 +157,7 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 
 ## 5. Execution phases (each ends playable + pushed)
 0. ✅ **Foundation**: Firebase project, rules, `kit/firebase.ts`, `package.json`, CLAUDE.md exception.
-1. **Lobby**: room create/join, QR code, station picking, presence, `?testi` debug view.
+1. ✅ **Lobby**: room create/join, QR code, station picking, presence, `?testi` debug view.
 2. **First flight** ⭐ first playable: simulation loop, main-screen map, Helm steers to destination, arrival screen. Other stations on autopilot.
 3. **Danger**: Tactical + Engineering + hull/energy; asteroid & pirate events.
 4. **Discovery**: Science (hidden things) + Captain (route choices, red alert).

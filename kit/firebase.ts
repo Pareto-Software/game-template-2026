@@ -4,6 +4,7 @@
 // const me = await online.connect();      // anonymous player id, no names
 // const code = await online.createRoom(); // big screen: a free 4-digit room code
 // await online.roomExists('1234');        // phone: is there such a room?
+// online.read('rooms/1234/phase')                    // the value once
 // online.watch('rooms/1234/state', (s) => …)          // called on every change
 // online.write / patch / add / remove / removeOnLeave // see below
 //
@@ -69,6 +70,12 @@ export const online = {
   async roomExists(code: string): Promise<boolean> {
     await online.connect();
     return (await get(ref(db, `rooms/${code}/hostUid`))).exists();
+  },
+
+  /** Reads the value at path once (null if there is nothing). */
+  async read<T>(path: string): Promise<T | null> {
+    await online.connect();
+    return (await get(ref(db, path))).val() as T | null;
   },
 
   /** Calls onChange with the value now and after every change. Returns a stop function. */
