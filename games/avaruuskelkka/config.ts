@@ -25,6 +25,19 @@ export interface Waypoint {
   rocks?: boolean;
   /** A Möhköttäjä pirate attacks on the way to this place. */
   pirate?: boolean;
+  /** Thick fog around this place: only Tiede can see the way. */
+  fog?: boolean;
+  /** Another place the Captain can choose to fly to instead of this one. */
+  alt?: Waypoint;
+}
+
+export interface SecretDef {
+  /** madonreika = wormhole shortcut, kristalli = bonus crystal */
+  kind: 'madonreika' | 'kristalli';
+  x: number;
+  y: number;
+  /** Wormhole: where it throws the ship, and which place on the route it flies to next. */
+  exit?: { x: number; y: number; target: number };
 }
 
 export const config = {
@@ -60,8 +73,11 @@ export const config = {
   /** Reitti – the trip from home to the goal planet. */
   route: [
     { name: 'Kotitelakka', emoji: '🛰️', x: 0, y: 0 },
-    { name: 'Juustosumu', emoji: '🧀', x: 3200, y: -1300, pirate: true },
-    { name: 'Kivikaista', emoji: '🪨', x: 6400, y: 500, rocks: true },
+    { name: 'Juustosumu', emoji: '🧀', x: 3200, y: -1300, pirate: true, fog: true },
+    {
+      name: 'Kivikaista', emoji: '🪨', x: 6400, y: 500, rocks: true,
+      alt: { name: 'Hattarapilvet', emoji: '🍭', x: 5200, y: -3900 },
+    },
     { name: 'Pörröpäiden asema', emoji: '👾', x: 9200, y: -1500 },
     { name: 'Avaruusvalaan laulupaikka', emoji: '🐋', x: 12000, y: 300, pirate: true },
     { name: 'Planeetta Kotikolo', emoji: '🪐', x: 15000, y: -700 },
@@ -124,6 +140,42 @@ export const config = {
     names: ['💨 Moottori pörisee', '☕ Kahvinkeitin', '🚽 Vessa tulvii', '💡 Valot vilkkuu', '🌀 Tuuletin', '🧦 Sukka putkessa'],
   },
 
+  /** Tiede – scanning finds hidden things and clears fog. */
+  science: {
+    /** How far a scan reaches. */
+    scanRadius: 2000,
+    /** Seconds to hold the scan button. */
+    holdSeconds: 1.5,
+    /** Seconds before the next scan. */
+    scanCharge: 6,
+    /** How long a scan keeps the fog away, and how big the fog is around a place with fog: true. */
+    fogClear: 15,
+    fogRadius: 2300,
+  },
+
+  /** Salaisuudet – hidden things that only a scan reveals. */
+  secrets: [
+    { kind: 'madonreika', x: 4600, y: -450, exit: { x: 8600, y: -1100, target: 3 } },
+    { kind: 'kristalli', x: 1900, y: -1100 },
+    { kind: 'kristalli', x: 5000, y: -900 },
+    { kind: 'kristalli', x: 7800, y: -2300 },
+    { kind: 'kristalli', x: 10600, y: -1100 },
+    { kind: 'kristalli', x: 13400, y: 200 },
+  ] as SecretDef[],
+  secretLooks: {
+    madonreika: { name: 'Madonreikä', emoji: '🌀', size: 220 },
+    kristalli: { name: 'Tähtikristalli', emoji: '💎', size: 80 },
+  },
+
+  /** Kapteeni – red alert and route choices. */
+  captain: {
+    /** PUNAINEN HÄLYTYS: seconds it lasts and seconds before it can be used again. */
+    alertSeconds: 10,
+    alertCharge: 30,
+    /** Seconds the Captain has to choose a route (then the first one is taken). */
+    choiceSeconds: 15,
+  },
+
   /** Autopilotti – stations nobody picked do their job slowly. */
   autopilot: {
     /** Throttle button the autopilot uses (0–3). */
@@ -132,6 +184,8 @@ export const config = {
     zapEvery: 2.5,
     /** Konehuone's autopilot fixes one fault every this many seconds. */
     fixEvery: 10,
+    /** Tiede's autopilot scans every this many seconds. */
+    scanEvery: 12,
   },
 
   /** Tähtipäivä – the bridge's silly date, grows during the trip. */

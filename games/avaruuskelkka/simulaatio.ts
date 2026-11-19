@@ -3,7 +3,7 @@
 // Also the shapes of everything stored in Firebase (shared with asemat.ts).
 
 import { online } from '@kit/firebase';
-import { config } from './config';
+import { config, type Waypoint } from './config';
 
 /** aula = waiting for the crew, matka = flying, perilla = arrived. */
 export type Phase = 'aula' | 'matka' | 'perilla';
@@ -99,6 +99,24 @@ export interface ShipState {
   shieldCharge: number;
   /** Seconds until the laser can shoot again. */
   reload: number;
+  /** Places (indexes of config.route) where the Captain chose the other place (alt). */
+  alts?: number[];
+  /** A route choice the Captain is making now: index of config.route, or -1. */
+  choice: number;
+  choiceTime: number;
+  /** PUNAINEN HÄLYTYS: seconds left, and seconds until it can be used again. */
+  alert: number;
+  alertCharge: number;
+  /** In thick fog: the main screen and the Helm can't see. */
+  fog: boolean;
+  /** Seconds the fog stays away after a scan. */
+  fogClear: number;
+  /** Seconds until Tiede can scan again. */
+  scanCharge: number;
+  /** One number per config.secrets: 0 = hidden, 1 = found, 2 = used. */
+  secrets: number[];
+  /** Star crystals collected. */
+  stars: number;
 }
 
 /** Firebase paths of one room. */
@@ -137,6 +155,12 @@ export function stardate(time: number) {
   return (config.stardate.start + time * config.stardate.perSecond).toFixed(1);
 }
 
+/** The place number i on this trip (the Captain may have chosen the other one). */
+export function place(s: ShipState, i: number): Waypoint {
+  const w = config.route[i];
+  return w.alt && s.alts?.includes(i) ? w.alt : w;
+}
+
 /** Runko (hull) in percent: every fault takes some off, but it never reaches 0. */
 export function hull(s: ShipState) {
   return Math.max(10, 100 - (s.faults?.length ?? 0) * 15);
@@ -149,6 +173,8 @@ function startState(): ShipState {
   return {
     x: home.x, y: home.y, heading, speed: 0, throttle: 0, target: 1, warpCharge: 0, warping: false, time: 0,
     energy: { ...config.energy.start }, faults: [], radar: [], shield: 0, shieldCharge: 0, reload: 0,
+    alts: [], choice: -1, choiceTime: 0, alert: 0, alertCharge: 0, fog: false, fogClear: 0, scanCharge: 0,
+    secrets: config.secrets.map(() => 0), stars: 0,
   };
 }
 
@@ -174,6 +200,16 @@ export interface SimEvents {
   fixed: () => void;
   /** A pirate arrived (true) or got bored and left (false). */
   pirate: (arrived: boolean) => void;
+  /** Tiede scanned and found these secrets (indexes of config.secrets). */
+  scan: (found: number[]) => void;
+  /** Flew into a wormhole (index of config.secrets). */
+  wormhole: (i: number) => void;
+  crystal: (i: number) => void;
+  alert: () => void;
+  /** The Captain must choose a route now. */
+  choose: () => void;
+  /** The route was chosen: flying to this place. */
+  chosen: (w: Waypoint) => void;
 }
 
 /** The host side of a room: runs the ship and reacts to the phones. */
@@ -190,12 +226,14 @@ export class Simulaatio {
   private pirateTimer = -1;
   private zapTimer = 0;
   private fixTimer = 0;
+  private scanTimer = 4;
   private nextId = 1;
   private p: ReturnType<typeof paths>;
   /** The edges of space: a bit outside the route. */
   readonly bounds = (() => {
-    const xs = config.route.map((w) => w.x);
-    const ys = config.route.map((w) => w.y);
+    const all = [...config.route, ...config.route.flatMap((w) => (w.alt ? [w.alt] : [])), ...config.secrets];
+    const xs = all.map((w) => w.x);
+    const ys = all.map((w) => w.y);
     const m = 2500;
     return { left: Math.min(...xs) - m, right: Math.max(...xs) + m, top: Math.min(...ys) - m, bottom: Math.max(...ys) + m };
   })();
@@ -253,7 +291,10 @@ export class Simulaatio {
     if (a === 'taktiikka:ammu') this.zap(Number(c.value));
     if (a === 'taktiikka:kilvet') this.raiseShields();
     if (a === 'konehuone:energia') this.moveEnergy(String(c.value));
-    if (a === 'konehuone:korjaa') this.repair(Number(c.value), 1);
+    if (a === 'konehuone:korjaa') this.repair(Number(c.value), this.ship.alert > 0 ? 2 : 1);
+    if (a === 'tiede:skannaa') this.scan();
+    if (a === 'kapteeni:halytys') this.redAlert();
+    if (a === 'kapteeni:reitti') this.chooseRoute(Number(c.value));
   }
 
   warp() {
@@ -274,6 +315,7 @@ export class Simulaatio {
     this.moveDangers(dt);
     this.tickTimers(dt);
     this.autopilots(dt);
+    this.checkSecrets();
     this.checkArrival();
     // Send the state to the phones 5 times a second
     this.sendTimer -= dt;
@@ -302,7 +344,7 @@ export class Simulaatio {
       if (helm.throttle !== undefined) s.throttle = Math.max(0, Math.min(config.helm.speeds.length - 1, Math.round(helm.throttle)));
     } else {
       // Autopilotti: turn towards the next place
-      const t = config.route[s.target];
+      const t = place(s, s.target);
       const diff = angleDiff(towards(s, t.x, t.y).angle, s.heading);
       turn = Math.abs(diff) < 3 ? 0 : Math.sign(diff);
       s.throttle = config.autopilot.helmThrottle;
@@ -341,7 +383,7 @@ export class Simulaatio {
 
   private checkArrival() {
     const s = this.ship;
-    const t = config.route[s.target];
+    const t = place(s, s.target);
     if (towards(s, t.x, t.y).distance > config.arriveDistance) return;
     this.on.arrived(s.target);
     if (s.target === config.route.length - 1) {
@@ -354,9 +396,92 @@ export class Simulaatio {
     }
   }
 
-  /** A new leg of the trip: is a pirate waiting on the way? */
+  /** A new leg of the trip: is a pirate waiting on the way? Does the Captain choose the route? */
   private legStarts() {
-    this.pirateTimer = config.route[this.ship.target].pirate ? 6 : -1;
+    const s = this.ship;
+    const w = config.route[s.target];
+    if (w.alt) {
+      s.choice = s.target;
+      s.choiceTime = config.captain.choiceSeconds;
+      this.on.choose();
+    }
+    this.pirateTimer = place(s, s.target).pirate ? 6 : -1;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Kapteeni: route choice and red alert
+  // ---------------------------------------------------------------------------
+
+  /** 0 = the normal place, 1 = the other place (alt). */
+  private chooseRoute(which: number) {
+    const s = this.ship;
+    if (s.choice < 0) return;
+    if (which === 1) s.alts = [...(s.alts ?? []), s.choice];
+    const w = place(s, s.choice);
+    s.choice = -1;
+    this.pirateTimer = w.pirate ? 6 : -1;
+    this.on.chosen(w);
+  }
+
+  private redAlert() {
+    const s = this.ship;
+    if (s.alertCharge > 0) return;
+    s.alert = config.captain.alertSeconds;
+    s.alertCharge = s.alert + config.captain.alertCharge;
+    s.shieldCharge = 0; // shields ready right away
+    this.on.alert();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tiede: scanning, fog and secrets
+  // ---------------------------------------------------------------------------
+
+  /** Are we near a place with fog? */
+  private inFogArea() {
+    const s = this.ship;
+    return config.route.some((_, i) => {
+      const w = place(s, i);
+      return w.fog && towards(s, w.x, w.y).distance < config.science.fogRadius;
+    });
+  }
+
+  private scan() {
+    const s = this.ship;
+    if (s.scanCharge > 0) return;
+    s.scanCharge = config.science.scanCharge;
+    if (this.inFogArea()) s.fogClear = config.science.fogClear;
+    const found: number[] = [];
+    config.secrets.forEach((sec, i) => {
+      if (s.secrets[i] === 0 && towards(s, sec.x, sec.y).distance < config.science.scanRadius) {
+        s.secrets[i] = 1;
+        found.push(i);
+      }
+    });
+    this.on.scan(found);
+  }
+
+  /** Fly into a found secret to use it. */
+  private checkSecrets() {
+    const s = this.ship;
+    config.secrets.forEach((sec, i) => {
+      if (s.secrets[i] !== 1) return;
+      const size = config.secretLooks[sec.kind].size;
+      if (towards(s, sec.x, sec.y).distance > size * 0.6 + 40) return;
+      s.secrets[i] = 2;
+      if (sec.kind === 'kristalli') {
+        s.stars++;
+        this.on.crystal(i);
+      } else if (sec.exit) {
+        // WHOOSH! Out of the other end, and on to the next place from there
+        s.x = sec.exit.x;
+        s.y = sec.exit.y;
+        s.target = Math.max(s.target, sec.exit.target);
+        s.choice = -1;
+        this.threats = [];
+        this.on.wormhole(i);
+        this.legStarts();
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -468,6 +593,7 @@ export class Simulaatio {
     const t = this.threats.find((x) => x.id === id);
     if (!t || s.reload > 0 || towards(s, t.x, t.y).distance > config.tactical.range) return;
     s.reload = Math.max(0.3, config.tactical.reload - config.tactical.reloadPerPoint * s.energy.aseet);
+    if (s.alert > 0) s.reload /= 2; // red alert: everyone is twice as fast
     t.hp--;
     this.on.zap(t);
     if (t.hp <= 0) {
@@ -489,6 +615,17 @@ export class Simulaatio {
     s.shield = Math.max(0, s.shield - dt);
     s.shieldCharge = Math.max(0, s.shieldCharge - dt);
     s.reload = Math.max(0, s.reload - dt);
+    s.alert = Math.max(0, s.alert - dt);
+    s.alertCharge = Math.max(0, s.alertCharge - dt);
+    s.scanCharge = Math.max(0, s.scanCharge - dt);
+    s.fogClear = Math.max(0, s.fogClear - dt);
+    s.fog = this.inFogArea() && s.fogClear <= 0;
+    if (s.choice >= 0) {
+      // Nobody at the Captain's chair: the autopilot takes the first route quickly
+      if (!this.manned('kapteeni')) s.choiceTime = Math.min(s.choiceTime, 3);
+      s.choiceTime -= dt;
+      if (s.choiceTime <= 0) this.chooseRoute(0);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -534,6 +671,13 @@ export class Simulaatio {
         if (inRange[0]) this.zap(inRange[0].id);
       }
     }
+    if (!this.manned('tiede')) {
+      this.scanTimer -= dt;
+      if (this.scanTimer <= 0) {
+        this.scanTimer = config.autopilot.scanEvery;
+        this.scan();
+      }
+    }
     if (!this.manned('konehuone') && s.faults?.length) {
       this.fixTimer -= dt;
       if (this.fixTimer <= 0) {
@@ -555,6 +699,8 @@ function roundState(s: ShipState, threats: Threat[]): ShipState {
     x: Math.round(s.x), y: Math.round(s.y), heading: Math.round(s.heading), speed: Math.round(s.speed),
     warpCharge: Math.ceil(s.warpCharge), time: Math.round(s.time * 10) / 10,
     shield: Math.ceil(s.shield), shieldCharge: Math.ceil(s.shieldCharge), reload: Math.round(s.reload * 10) / 10,
+    choiceTime: Math.ceil(s.choiceTime), alert: Math.ceil(s.alert), alertCharge: Math.ceil(s.alertCharge),
+    fogClear: Math.ceil(s.fogClear), scanCharge: Math.ceil(s.scanCharge), secrets: [...s.secrets],
     radar,
   };
 }

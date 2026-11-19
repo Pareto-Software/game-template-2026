@@ -8,8 +8,8 @@ import { startPhaserGame, emojiTexture, circleTexture } from '@kit/phaser';
 import { online } from '@kit/firebase';
 import { storage } from '@kit/storage';
 import { sfx } from '@kit/sound';
-import { config } from './config';
-import { Simulaatio, crewByStation, stardate, towards, hull, type Phase, type PlayerInfo, type Threat, type ThreatKind } from './simulaatio';
+import { config, type Waypoint } from './config';
+import { Simulaatio, crewByStation, stardate, towards, hull, place, type Phase, type PlayerInfo, type Threat, type ThreatKind } from './simulaatio';
 
 const W = 1280;
 const H = 720;
@@ -82,6 +82,11 @@ class Paanaytto extends Phaser.Scene {
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private laser!: Phaser.GameObjects.Graphics;
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
+  private secretSprites: Phaser.GameObjects.Image[] = [];
+  private fog!: Phaser.GameObjects.Container;
+  private alertGlow!: Phaser.GameObjects.Rectangle;
+  private alertText!: Phaser.GameObjects.Text;
+  private sirenTimer = 0;
 
   constructor(private code: string) {
     super('Paanaytto');
@@ -101,12 +106,20 @@ class Paanaytto extends Phaser.Scene {
       shields: () => { sfx('powerup', { pitch: 0.7 }); this.banner('KILVET YLÖS!', config.lcars[2]); },
       fixed: () => sfx('coin', { pitch: 1.5 }),
       pirate: (arrived) => this.pirateNews(arrived),
+      scan: (found) => this.scanPulse(found),
+      wormhole: (i) => this.wormhole(i),
+      crystal: (i) => this.crystal(i),
+      alert: () => { this.banner('PUNAINEN HÄLYTYS!', '#ff3333'); this.cameras.main.shake(300, 0.01); },
+      choose: () => { sfx('click'); this.banner('Kapteeni, valitse reitti!', config.lcars[1]); },
+      chosen: (w) => { sfx('coin'); this.banner(`Kurssi: ${w.name} ${w.emoji}`, config.lcars[0]); },
     });
     this.makeStars();
     this.makeSpace();
     this.makeShip();
     this.makeDangerFx();
+    this.makeSecrets();
     this.makeOverlay();
+    this.makeFogAndAlert();
     this.makeFrame();
     this.makeLobby();
     this.makeFinish();
@@ -124,12 +137,14 @@ class Paanaytto extends Phaser.Scene {
     this.drawMiniMap();
     this.drawThreats();
     this.drawShipFx();
-    const t = config.route[s.target];
+    this.drawSecrets();
+    this.drawFogAndAlert(dt);
+    const t = place(s, s.target);
     this.targetText.setText(`KOHDE: ${t.name.toUpperCase()} ${t.emoji}   ${Math.round(towards(s, t.x, t.y).distance)} KM`);
     this.dateText.setText(`TÄHTIPÄIVÄ ${stardate(s.time)}`);
     const faults = s.faults?.length ?? 0;
     const shields = s.shield > 0 ? 'KILVET YLHÄÄLLÄ 🛡️' : s.shieldCharge > 0 ? 'KILVET LATAUTUU' : 'KILVET VALMIINA';
-    this.statusText.setText(`RUNKO ${hull(s)}%   ${faults ? '💥'.repeat(faults) + ' VIKOJA ' + faults : 'EI VIKOJA'}   ${shields}`);
+    this.statusText.setText(`RUNKO ${hull(s)}%   ${faults ? '💥'.repeat(faults) + ' VIKOJA ' + faults : 'EI VIKOJA'}   ${shields}   💎 ${s.stars}`);
     this.statusText.setColor(faults >= 3 ? '#ff5c5c' : config.lcars[2]);
   }
 
@@ -190,20 +205,29 @@ class Paanaytto extends Phaser.Scene {
     }
     const g = this.add.graphics().setDepth(-4);
     g.lineStyle(6, LC[1], 0.35);
+    const dashes = (a: Waypoint, b: Waypoint) => {
+      const steps = Math.floor(Math.hypot(b.x - a.x, b.y - a.y) / 60);
+      for (let k = 0; k < steps; k += 2) {
+        const p = k / steps;
+        const q = (k + 1) / steps;
+        g.lineBetween(a.x + (b.x - a.x) * p, a.y + (b.y - a.y) * p, a.x + (b.x - a.x) * q, a.y + (b.y - a.y) * q);
+      }
+    };
     config.route.forEach((w, i) => {
       const next = config.route[i + 1];
-      if (!next) return;
-      const steps = Math.floor(Math.hypot(next.x - w.x, next.y - w.y) / 60);
-      for (let k = 0; k < steps; k += 2) {
-        const a = k / steps;
-        const c = (k + 1) / steps;
-        g.lineBetween(w.x + (next.x - w.x) * a, w.y + (next.y - w.y) * a, w.x + (next.x - w.x) * c, w.y + (next.y - w.y) * c);
-      }
+      if (next) dashes(w, next);
+      // The other route the Captain can choose: dashes to it and on from it
+      const prev = config.route[i - 1];
+      if (w.alt && prev) { dashes(prev, w.alt); if (next) dashes(w.alt, next); }
     });
-    config.route.forEach((w, i) => {
-      const planet = this.add.image(w.x, w.y, emojiTexture(this, `paikka-${i}`, w.emoji, 200)).setDepth(-3);
-      this.tweens.add({ targets: planet, angle: 8, duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    const planet = (w: Waypoint, key: string) => {
+      const img = this.add.image(w.x, w.y, emojiTexture(this, key, w.emoji, 200)).setDepth(-3);
+      this.tweens.add({ targets: img, angle: 8, duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       label(this, w.x, w.y + 140, w.name, 44, config.lcars[0]).setOrigin(0.5).setDepth(-3);
+    };
+    config.route.forEach((w, i) => {
+      planet(w, `paikka-${i}`);
+      if (w.alt) planet(w.alt, `paikka-${i}-alt`);
     });
     // The wobbly pink edge of space
     g.lineStyle(14, 0xff5ca8, 0.5);
@@ -221,7 +245,7 @@ class Paanaytto extends Phaser.Scene {
   /** An orange arrow next to the ship points to where we are going. */
   private drawArrow() {
     const s = sim!.ship;
-    const t = config.route[s.target];
+    const t = place(s, s.target);
     const dir = towards(s, t.x, t.y);
     const rad = (dir.angle * Math.PI) / 180;
     this.arrow.setPosition(s.x + Math.cos(rad) * 140, s.y + Math.sin(rad) * 140).setAngle(dir.angle);
@@ -338,6 +362,95 @@ class Paanaytto extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------------------------
+  // Tiede: hidden secrets, scan pulse, fog. Kapteeni: red alert
+  // ---------------------------------------------------------------------------
+
+  private makeSecrets() {
+    this.secretSprites = config.secrets.map((sec, i) => {
+      const look = config.secretLooks[sec.kind];
+      const img = this.add.image(sec.x, sec.y, emojiTexture(this, `salaisuus-${sec.kind}`, look.emoji, 128))
+        .setDisplaySize(look.size, look.size).setDepth(2).setVisible(false);
+      if (sec.kind === 'madonreika') this.tweens.add({ targets: img, angle: 360, duration: 3000, repeat: -1 });
+      else this.tweens.add({ targets: img, scale: img.scale * 1.15, duration: 600, yoyo: true, repeat: -1 });
+      img.setName(String(i));
+      return img;
+    });
+  }
+
+  /** Found secrets are visible, hidden and used ones are not. */
+  private drawSecrets() {
+    const s = sim!.ship;
+    this.secretSprites.forEach((img, i) => img.setVisible(s.secrets[i] === 1));
+  }
+
+  /** A ring flies out from the ship; found things pop into view. */
+  private scanPulse(found: number[]) {
+    sfx('powerup', { pitch: 1.5 });
+    const s = sim!.ship;
+    const ring = this.add.circle(s.x, s.y, 50).setStrokeStyle(10, LC[6], 0.9).setDepth(8);
+    this.tweens.add({
+      targets: ring, radius: config.science.scanRadius, alpha: 0, duration: 1200, ease: 'Quad.out', onComplete: () => ring.destroy(),
+    });
+    for (const i of found) {
+      const look = config.secretLooks[config.secrets[i].kind];
+      const img = this.secretSprites[i].setAlpha(0);
+      this.tweens.add({ targets: img, alpha: 1, duration: 800, delay: 400 });
+      this.time.delayedCall(500, () => this.banner(`Löytyi: ${look.name} ${look.emoji}`, config.lcars[6]));
+    }
+    if (!found.length && sim!.ship.fogClear > 0) this.banner('Sumu hälvenee!', config.lcars[6]);
+  }
+
+  private wormhole(i: number) {
+    sfx('powerup', { pitch: 0.5 });
+    this.cameras.main.flash(600, 180, 140, 255);
+    this.cameras.main.shake(500, 0.02);
+    this.banner('WHOOOSH! MADONREIKÄ! 🌀', '#b48cff');
+    this.secretSprites[i].setVisible(false);
+  }
+
+  private crystal(i: number) {
+    sfx('coin', { pitch: 2 });
+    const sec = config.secrets[i];
+    const word = label(this, sec.x, sec.y, '+1 💎', 60, '#3dffd2').setOrigin(0.5).setDepth(7);
+    this.tweens.add({ targets: word, y: sec.y - 120, alpha: 0, duration: 1000, onComplete: () => word.destroy() });
+  }
+
+  /** Cheesy yellow fog over the viewscreen, and the red alert glow. */
+  private makeFogAndAlert() {
+    this.fog = this.add.container(0, 0).setScrollFactor(0).setDepth(UI - 2).setAlpha(0);
+    this.fog.add(this.add.rectangle(VS.x, VS.y, VS.w, VS.h, 0xfff1b8, 0.88).setOrigin(0));
+    for (let i = 0; i < 9; i++) {
+      const cloud = this.add.image(VS.x + Math.random() * VS.w, VS.y + 80 + Math.random() * (VS.h - 120),
+        emojiTexture(this, i % 3 ? 'pilvi' : 'juusto', i % 3 ? '☁️' : '🧀', 128)).setAlpha(0.7).setDisplaySize(180, 180);
+      this.tweens.add({ targets: cloud, x: cloud.x + 120, duration: 4000 + i * 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.fog.add(cloud);
+    }
+    this.fog.add(label(this, VS.x + VS.w / 2, VS.y + VS.h / 2, 'SUMUA! TIEDE, SKANNAA!', 52, '#996600').setOrigin(0.5));
+    this.alertGlow = this.add.rectangle(VS.x, VS.y, VS.w, VS.h, 0xff0000, 0).setOrigin(0)
+      .setStrokeStyle(16, 0xff0000).setScrollFactor(0).setDepth(UI - 1).setVisible(false);
+    this.alertText = label(this, 925, 684, 'PUNAINEN HÄLYTYS', 26).setScrollFactor(0).setDepth(FRAME + 1)
+      .setBackgroundColor('#ff3333').setVisible(false);
+  }
+
+  private drawFogAndAlert(dt: number) {
+    const s = sim!.ship;
+    const goal = s.fog && sim!.phase === 'matka' ? 1 : 0;
+    this.fog.setAlpha(this.fog.alpha + (goal - this.fog.alpha) * Math.min(1, dt * 2));
+    const alert = s.alert > 0 && sim!.phase === 'matka';
+    const blink = Math.sin(this.time.now / 120) > 0;
+    this.alertGlow.setVisible(alert).setFillStyle(0xff0000, blink ? 0.15 : 0.03);
+    this.alertText.setVisible(alert && blink);
+    if (alert) {
+      // Siren: high – low – high – low
+      this.sirenTimer -= dt;
+      if (this.sirenTimer <= 0) {
+        this.sirenTimer = 0.45;
+        sfx('bounce', { pitch: blink ? 2 : 1.4, volume: 0.6 });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Things on top of the viewscreen: target line, mini map, banners
   // ---------------------------------------------------------------------------
 
@@ -358,11 +471,17 @@ class Paanaytto extends Phaser.Scene {
     const g = this.miniMap.clear();
     const s = sim!.ship;
     g.lineStyle(2, LC[1], 0.6);
-    config.route.forEach((w, i) => {
-      const next = config.route[i + 1];
+    config.route.forEach((_, i) => {
+      const w = place(s, i);
+      const next = config.route[i + 1] && place(s, i + 1);
       if (next) g.lineBetween(px(w.x), py(w.y), px(next.x), py(next.y));
       g.fillStyle(i < s.target ? 0x7cff6b : i === s.target ? LC[0] : 0x888888, 1);
       g.fillCircle(px(w.x), py(w.y), 5);
+    });
+    config.secrets.forEach((sec, i) => {
+      if (s.secrets[i] !== 1) return;
+      g.fillStyle(sec.kind === 'madonreika' ? 0xb48cff : 0x3dffd2, 1);
+      g.fillCircle(px(sec.x), py(sec.y), 3);
     });
     g.fillStyle(0xffffff, 1);
     g.fillCircle(px(s.x), py(s.y), 4);
@@ -378,7 +497,7 @@ class Paanaytto extends Phaser.Scene {
   }
 
   private arrivedAt(i: number) {
-    const w = config.route[i];
+    const w = place(sim!.ship, i);
     sfx(i === config.route.length - 1 ? 'win' : 'coin');
     this.banner(`SAAVUTTU: ${w.name} ${w.emoji}`);
   }
@@ -519,7 +638,7 @@ class Paanaytto extends Phaser.Scene {
     const s = sim!.ship;
     const minutes = Math.floor(s.time / 60);
     const seconds = String(Math.floor(s.time % 60)).padStart(2, '0');
-    this.finishTime.setText(`MATKA-AIKA ${minutes}:${seconds} · TÄHTIPÄIVÄ ${stardate(s.time)}`);
+    this.finishTime.setText(`MATKA-AIKA ${minutes}:${seconds} · 💎 ${s.stars} KRISTALLIA · TÄHTIPÄIVÄ ${stardate(s.time)}`);
     LC.forEach((c, i) => {
       const confetti = this.add.particles(VS.x + VS.w / 2, VS.y + 40, circleTexture(this, `konfetti-${i}`, 7, c), {
         speed: { min: 200, max: 600 }, angle: { min: 20, max: 160 }, gravityY: 500, lifespan: 3500, emitting: false,

@@ -10,7 +10,7 @@ import { storage } from '@kit/storage';
 import { sfx } from '@kit/sound';
 import { config, type StationDef } from './config';
 import {
-  paths, crewByStation, towards, angleDiff, stardate, hull,
+  paths, crewByStation, towards, angleDiff, stardate, hull, place,
   type Phase, type PlayerInfo, type ShipState, type HelmInput, type Energy, type ThreatKind,
 } from './simulaatio';
 
@@ -157,12 +157,13 @@ const helm = (() => {
       <div class="row throttle">${names.map((n, i) => `<button class="c${i + 1}" data-throttle="${i}">${n}</button>`).join('')}</div>
       <button class="big c2" id="warp" data-send="warp">✨ WARP! ✨</button>`,
     live: (s: ShipState) => {
-      const t = config.route[s.target];
+      const t = place(s, s.target);
       const dir = towards(s, t.x, t.y);
       // The arrow shows where the target is compared to where the ship points (up = straight ahead)
-      $('nuoli')!.style.transform = `rotate(${angleDiff(dir.angle, s.heading)}deg)`;
-      $('kohde')!.textContent = `${t.emoji} ${t.name}`;
-      $('matka')!.textContent = `${Math.round(dir.distance)} km`;
+      $('nuoli')!.style.transform = s.fog ? 'none' : `rotate(${angleDiff(dir.angle, s.heading)}deg)`;
+      $('nuoli')!.textContent = s.fog ? '?' : '▲';
+      $('kohde')!.textContent = s.fog ? '🌫️ Sumua! Kysy Tieteeltä suunta' : `${t.emoji} ${t.name}`;
+      $('matka')!.textContent = s.fog ? '??? km' : `${Math.round(dir.distance)} km`;
       $('nopeus')!.textContent = s.warping ? 'WARP!!!' : `Nopeus ${s.speed}`;
       const warp = $('warp') as HTMLButtonElement;
       warp.disabled = s.warpCharge > 0;
@@ -187,18 +188,108 @@ function markThrottle(n: number) {
   document.querySelectorAll('[data-throttle]').forEach((b) => b.classList.toggle('on', Number((b as HTMLElement).dataset.throttle) === n));
 }
 
-/** Kapteeni during the trip: the route, with the places already visited ticked. */
-const captain: StationView = {
-  html: () => `<div class="route">${config.route.map((w, i) => `<div data-paikka="${i}">${w.emoji} ${w.name}</div>`).join('')}</div>
-    <div class="silly" id="hassu"></div>`,
-  live: (s) => {
-    document.querySelectorAll<HTMLElement>('[data-paikka]').forEach((el) => {
-      const i = Number(el.dataset.paikka);
-      el.className = i < s.target ? 'done' : i === s.target ? 'next' : '';
-    });
-    $('hassu')!.textContent = `Tähtipäivä ${stardate(s.time)}`;
-  },
-};
+/** Kapteeni during the trip: everyone's status, red alert, route choices and the route. */
+const captain: StationView = (() => {
+  let shownChoice = -2;
+  /** "lyhyt mutta kivinen" etc. – compares the two places. */
+  const describe = (s: ShipState, i: number, w: { x: number; y: number; rocks?: boolean; pirate?: boolean; fog?: boolean }) => {
+    const prev = place(s, i - 1);
+    const next = config.route[i + 1] ? place(s, i + 1) : w;
+    const length = towards(prev, w.x, w.y).distance + towards(w, next.x, next.y).distance;
+    const other = config.route[i].alt && w === config.route[i] ? config.route[i].alt! : config.route[i];
+    const otherLength = towards(prev, other.x, other.y).distance + towards(other, next.x, next.y).distance;
+    const danger = w.rocks || w.pirate || w.fog;
+    return `${length <= otherLength ? 'lyhyt' : 'pitkä'} mutta ${danger ? 'vaarallinen' : 'tylsä'}`;
+  };
+  return {
+    html: () => {
+      shownChoice = -2;
+      return `
+      <div class="status" id="tila"></div>
+      <div id="valinta"></div>
+      <button class="big alertbtn" id="halytys" data-send="halytys">🚨 Punainen hälytys!</button>
+      <div class="route">${config.route.map((_, i) => `<div data-paikka="${i}"></div>`).join('')}</div>
+      <div class="silly" id="hassu"></div>`;
+    },
+    live: (s) => {
+      const faults = s.faults?.length ?? 0;
+      $('tila')!.innerHTML = `<span>🛡️ Runko ${hull(s)} %</span><span>💥 Vikoja ${faults}</span>
+        <span>${s.shield > 0 ? '🛡️ Kilvet ylhäällä' : '🛡️ Kilvet alhaalla'}</span><span>💎 ${s.stars}</span>`;
+      const alert = $('halytys') as HTMLButtonElement;
+      alert.disabled = s.alertCharge > 0;
+      alert.textContent = s.alert > 0 ? `🚨 HÄLYTYS! ${s.alert}` : s.alertCharge > 0 ? `Hälytys latautuu… ${s.alertCharge}` : '🚨 Punainen hälytys!';
+      document.querySelectorAll<HTMLElement>('[data-paikka]').forEach((el) => {
+        const i = Number(el.dataset.paikka);
+        const w = place(s, i);
+        el.textContent = `${w.emoji} ${w.name}`;
+        el.className = i < s.target ? 'done' : i === s.target ? 'next' : '';
+      });
+      $('hassu')!.textContent = `Tähtipäivä ${stardate(s.time)}`;
+      // Route choice: redraw the two buttons only when a new choice starts or ends
+      if (s.choice !== shownChoice) {
+        shownChoice = s.choice;
+        const box = $('valinta')!;
+        if (s.choice < 0) { box.innerHTML = ''; return; }
+        const a = config.route[s.choice];
+        const b = a.alt!;
+        box.innerHTML = `<div class="hint">Valitse reitti! <span id="aika"></span></div><div class="row">
+          <button class="c0 choice" data-send="reitti" data-value="0">${a.emoji} ${a.name}<small>${describe(s, s.choice, a)}</small></button>
+          <button class="c1 choice" data-send="reitti" data-value="1">${b.emoji} ${b.name}<small>${describe(s, s.choice, b)}</small></button></div>`;
+      }
+      if (s.choice >= 0) $('aika')!.textContent = `${s.choiceTime} s`;
+    },
+  };
+})();
+
+/** Tiede: hold to scan, find secrets, and see the way even in fog. */
+const science: StationView = (() => {
+  let holding = 0;
+  let frame = 0;
+  const stop = () => {
+    cancelAnimationFrame(frame);
+    holding = 0;
+    const fill = $('lataus');
+    if (fill) fill.style.width = '0%';
+  };
+  /** Fills the bar while the button is held; full = scan! */
+  const grow = () => {
+    const done = (performance.now() - holding) / 1000 / config.science.holdSeconds;
+    const fill = $('lataus');
+    if (!fill || !holding) return;
+    fill.style.width = `${Math.min(100, done * 100)}%`;
+    if (done >= 1) { send('skannaa'); sfx('powerup', { pitch: 1.5 }); stop(); return; }
+    frame = requestAnimationFrame(grow);
+  };
+  return {
+    html: () => `
+      <div class="readout"><div class="compass"><span id="nuoli">▲</span></div>
+        <div><b id="kohde"></b><span id="matka"></span><span id="sumu"></span></div></div>
+      <button class="hold scan c6" data-hold="skannaa"><span class="fill" id="lataus"></span><span class="label" id="skanneri">📡 Pidä pohjassa: skannaa!</span></button>
+      <div class="found" id="loydot"></div>`,
+    live: (s) => {
+      const t = place(s, s.target);
+      const dir = towards(s, t.x, t.y);
+      $('nuoli')!.style.transform = `rotate(${angleDiff(dir.angle, s.heading)}deg)`;
+      $('kohde')!.textContent = `${t.emoji} ${t.name}`;
+      $('matka')!.textContent = `${Math.round(dir.distance)} km`;
+      $('sumu')!.textContent = s.fog ? '🌫️ Sumua! Kerro Ohjaukselle suunta!' : s.fogClear > 0 ? `Sumu poissa ${s.fogClear} s` : '';
+      $('skanneri')!.textContent = s.scanCharge > 0 ? `Skanneri latautuu… ${s.scanCharge}` : '📡 Pidä pohjassa: skannaa!';
+      // Found things: what they are, which way and how far (up = straight ahead)
+      const found = config.secrets.map((sec, i) => ({ sec, i })).filter(({ i }) => s.secrets[i] === 1);
+      $('loydot')!.innerHTML = found.length
+        ? found.map(({ sec }) => {
+          const look = config.secretLooks[sec.kind];
+          const d = towards(s, sec.x, sec.y);
+          return `<div>${look.emoji} ${look.name} <span class="arrow" style="transform: rotate(${angleDiff(d.angle, s.heading)}deg)">▲</span> ${Math.round(d.distance)} km</div>`;
+        }).join('')
+        : '<div class="hint">Ei löytöjä vielä – skannaa!</div>';
+    },
+    hold: (_name, down) => {
+      if (down && !holding && (now.ship?.scanCharge ?? 0) <= 0) { holding = performance.now(); grow(); }
+      if (!down) stop();
+    },
+  };
+})();
 
 /** Stations that get their real job in a later phase: a console that beeps and says silly things. */
 const waiting: StationView = {
@@ -287,7 +378,9 @@ const engineering: StationView = (() => {
   };
 })();
 
-const views: Record<string, StationView> = { ohjaus: helm, kapteeni: captain, taktiikka: tactical, konehuone: engineering };
+const views: Record<string, StationView> = {
+  ohjaus: helm, kapteeni: captain, taktiikka: tactical, konehuone: engineering, tiede: science,
+};
 
 // ---------------------------------------------------------------------------
 // Drawing the phone screen
@@ -309,6 +402,7 @@ function render() {
 
 /** Updates the numbers of the current view. */
 function live() {
+  document.body.classList.toggle('alert', now.phase === 'matka' && (now.ship?.alert ?? 0) > 0);
   if (!now.me || !now.ship || now.phase !== 'matka') return;
   (views[now.me.station] ?? waiting).live?.(now.ship);
 }
@@ -370,7 +464,7 @@ function setUpPage() {
     if (!b || b.dataset.hold || b.dataset.zap || b.dataset.fix) return;
     sfx('click', { pitch: 1 + Math.random() }); // every console beeps a bit differently
     if (b.dataset.pick) pick(b.dataset.pick);
-    if (b.dataset.send) send(b.dataset.send);
+    if (b.dataset.send) send(b.dataset.send, b.dataset.value === undefined ? undefined : Number(b.dataset.value));
     if (b.dataset.throttle) helm.setThrottle(Number(b.dataset.throttle));
     if (b.dataset.energy) send('energia', b.dataset.energy);
     if (b.dataset.go === 'vaihda') standUp();
@@ -410,7 +504,7 @@ const CSS = `
   body { margin: 0; background: #000; color: #fff;
     font-family: "Arial Narrow", "Roboto Condensed", "Helvetica Neue", system-ui, sans-serif; font-stretch: condensed;
     -webkit-user-select: none; user-select: none; touch-action: manipulation; -webkit-touch-callout: none; }
-  .phone { max-width: 520px; margin: 0 auto; padding: 14px; box-sizing: border-box; min-height: 100vh;
+  .phone { overflow-x: hidden; max-width: 520px; margin: 0 auto; padding: 14px; box-sizing: border-box; min-height: 100vh;
     display: flex; flex-direction: column; gap: 12px; }
   ${colourCss}
   b { text-transform: uppercase; letter-spacing: 1px; }
@@ -442,7 +536,8 @@ const CSS = `
   .throttle button.on { opacity: 1; outline: 4px solid #fff; }
   .readout { display: flex; gap: 14px; align-items: center; background: #111; border-radius: 16px; padding: 12px; }
   .readout b, .readout span { display: block; }
-  .readout #kohde { color: ${config.lcars[0]}; font-size: 22px; }
+  .readout > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+  .readout #kohde { color: ${config.lcars[0]}; font-size: 19px; }
   .readout #matka { font-size: 30px; font-weight: bold; }
   .readout #nopeus { color: ${config.lcars[2]}; }
   .compass { width: 84px; height: 84px; border-radius: 50%; border: 4px solid ${config.lcars[1]}; display: grid; place-items: center; font-size: 44px; color: ${config.lcars[0]}; flex: none; }
@@ -469,6 +564,19 @@ const CSS = `
   .faults { display: flex; flex-direction: column; gap: 8px; }
   .fault { background: #ff5c5c; text-align: left; border-radius: 16px; animation: wobble 0.4s infinite alternate; }
   @keyframes wobble { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }
+  .status { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #111; border-radius: 16px; padding: 10px 14px;
+    font-size: 18px; text-transform: uppercase; }
+  .alertbtn { background: #ff3333; font-size: 24px; }
+  .choice { font-size: 17px; padding: 14px 6px; border-radius: 20px; min-width: 0; overflow-wrap: anywhere; }
+  .choice small { opacity: 0.8; color: #000; }
+  .scan { position: relative; overflow: hidden; font-size: 22px; }
+  .scan .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: #fff; opacity: 0.6; }
+  .scan .label { position: relative; }
+  .found div { padding: 10px 16px; margin: 6px 0; border-radius: 999px; background: #111; font-size: 20px; text-transform: uppercase; }
+  .found .arrow { display: inline-block; color: ${config.lcars[0]}; }
+  #sumu { color: #fff1b8; }
+  body.alert { animation: redalert 0.5s infinite alternate; }
+  @keyframes redalert { from { box-shadow: inset 0 0 0 0 #f00; } to { box-shadow: inset 0 0 60px 20px #f00; } }
   .code { text-align: center; font-size: 56px; letter-spacing: 16px; color: ${config.lcars[0]}; }
   .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .pad button { background: ${config.lcars[1]}; font-size: 34px; padding: 18px 0; }

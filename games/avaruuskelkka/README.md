@@ -39,7 +39,11 @@ Everything in this game lives in these files; don't create new files.
 | Longer shields | `config.tactical.shieldSeconds`, `.shieldPerPoint`, `.shieldCharge` |
 | More energy points | `config.energy.total`, `.max`, `.start` |
 | Funny fault names, easier repairs | `config.faults.names`, `.tapsToFix` |
-| Autopilot zaps / repairs faster | `config.autopilot.zapEvery`, `.fixEvery` |
+| Autopilot zaps / repairs / scans faster | `config.autopilot.zapEvery`, `.fixEvery`, `.scanEvery` |
+| Fog somewhere | `fog: true` on a place in `config.route`; size and scan effect: `config.science` |
+| Captain chooses between two places | `alt: { name, emoji, x, y }` on a place in `config.route` |
+| More hidden crystals / wormholes | `config.secrets` (`kind`, `x`, `y`; wormhole: `exit: { x, y, target }`); looks: `config.secretLooks` |
+| Longer red alert | `config.captain.alertSeconds`, `.alertCharge`; route choice time: `.choiceSeconds` |
 | Funny console messages | `config.sillyLines` |
 | Console colours (orange, lilac …) | `config.lcars` |
 | Stardate | `config.stardate` |
@@ -60,6 +64,9 @@ Everything in this game lives in these files; don't create new files.
 - Danger: `spawnDangers` / `moveDangers` / `movePirate` / `hitShip` in `simulaatio.ts`;
   Taktiikka → `zap` + `raiseShields`, Konehuone → `moveEnergy` + `repair`, empty stations → `autopilots`.
   The main screen draws them in `drawThreats`, `zap`, `pop`, `hit`, `splat` (`paanaytto.ts`).
+- Discovery: `scan` / `checkSecrets` / `inFogArea` (Tiede), `chooseRoute` / `redAlert` (Kapteeni) in
+  `simulaatio.ts`. Use `place(s, i)` – not `config.route[i]` – for the place the crew is really flying to.
+  Main screen: `scanPulse`, `wormhole`, `crystal`, `drawFogAndAlert`.
 - The main screen has two cameras: space is zoomed out (`ZOOM`), the console frame is not.
   Anything with `setScrollFactor(0)` goes to the frame camera automatically.
 - Helm sends held values to `inputs/ohjaus` (`turn`, `throttle`); `steer()` in `simulaatio.ts` reads them,
