@@ -218,11 +218,21 @@ On the published site, with 3–5 real phones (both iPhone and Android if possib
 - [ ] Phones scan the QR code and land on "Valitse asema". `?liity` + typing the code also works.
 - [ ] Each phone picks a station; dots with the right colours appear on the main screen.
 - [ ] Kapteeni taps "Tehkää niin!" – every phone switches to its console.
-- [ ] Ohjaus: hold ◀ / ▶ (no text selection or long-press menu), speeds, WARP.
-- [ ] Taktiikka: tapping radar targets zaps them; KILVET YLÖS works.
-- [ ] Konehuone: − / + energy, tapping faults fixes them.
-- [ ] Tiede: holding the scan button fills the bar and scans; fog clears.
-- [ ] Viestintä, Operaatiot, Neuvonantaja: answer an alien, shoo the cat, tap the heart in time.
+- [ ] Ohjaus: hold ◀ / ▶ (no text selection or long-press menu), speeds. WARP asks the Captain first.
+- [ ] Kapteeni: requests (WARP, wormhole, tractor beam, shooting the pirate) show up; ✅ / ❌ work;
+      an unanswered request expires and can be asked again.
+- [ ] Taktiikka: tapping radar targets zaps them; KILVET YLÖS works; the pirate can be zapped only
+      after the Captain's OK; 🎯 weak spots from Tiede show.
+- [ ] Konehuone: the reactor needle game charges ⚡, a boost can be given to a station;
+      a hit breaks a station (red banner on that phone) and tapping it here fixes it.
+- [ ] Tiede: holding the scan button fills the bar and scans; fog clears; weak spots appear.
+- [ ] Neuvonantaja: heartbeat taps charge 💖 and boost a station; the alien mood shows here.
+- [ ] Viestintä: an alien call can be answered right using the mood Neuvonantaja says out loud.
+- [ ] Operaatiot: rock shower / pirate warnings arrive early and can be forwarded to Taktiikka /
+      Ohjaus; the cat can be shooed; tractor beam asks the Captain.
+- [ ] Every station has something to do most of the time (watch the kids, not the screens).
+- [ ] Tune with real kids in `config.ts`: `captain.requestSeconds`, `warnings.lead` / `showerEvery`,
+      `boosts.power.chargeSeconds`, `boosts.cheer.beats`, `faults.tapsToFix`.
 - [ ] Phones stay awake (screen doesn't turn off) during the trip.
 - [ ] Lock a phone for a minute, unlock: it's back at its station.
 - [ ] Reload the main screen mid-trip: the trip continues, phones keep working.
