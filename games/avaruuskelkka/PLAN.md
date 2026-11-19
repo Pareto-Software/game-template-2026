@@ -9,7 +9,7 @@ flies the ship from the home base to a far-away destination planet. The game
 Made for the "Lapsi töihin" day: kids (8–13) change it by telling Claude their
 ideas, so almost everything they'd want to change lives in `config.ts`.
 
-Status: **phases 0–7 done** – the game is complete and published. Left: the **real-phone playtest** (section 9). Open decisions are marked **❓**.
+Status: **phases 0–7 done**, published. Now: **phase 8 – crew cooperation** (section 10). Also left: the real-phone playtest (section 9). Open decisions are marked **❓**.
 
 ---
 
@@ -229,3 +229,51 @@ On the published site, with 3–5 real phones (both iPhone and Android if possib
 - [ ] Venue Wi-Fi: everything above works on the Wi-Fi the kids will use.
 - [ ] Sound level of the main screen is OK in the room.
 - [ ] A whole trip with real players takes about 5–10 minutes (tune `config.route` distances if not).
+
+## 10. Phase 8: crew cooperation
+
+Goal: every station has something to do all the trip, needs someone else, and can
+help someone else. Analysis of phases 0–7: Ohjaus and Taktiikka were busy; Kapteeni,
+Viestintä, Operaatiot and Neuvonantaja mostly waited; almost everything was visible on
+the projector, so nobody had to ask anybody; energy and morale were numbers, not things
+the crew gives each other.
+
+**Rule for small crews:** when a partner station is empty, its part is automated (autopilot)
+or its information shows on the other phone itself – a trip with 2–3 kids still works.
+
+### 8a – orders, station faults, boosts
+- **Kapteenin käskyt (Captain's orders).** These need the Captain's ✅ "Tehkää niin!":
+  WARP (Ohjaus), jumping through a found wormhole (asked when the ship flies into it),
+  the tractor beam (Operaatiot), and "aseet vapaiksi" – shooting at a pirate (Taktiikka;
+  rocks and pies can always be zapped). The request appears on the Captain's phone and
+  as a banner on the main screen. Approved → it happens at once. ❌ or no answer in 15 s →
+  it expires, the asker can ask again. No Captain on board → the autopilot approves in 3 s.
+- **Viat osuvat asemiin (station faults).** A hit breaks one station's console (one fault
+  per station at a time) until Konehuone fixes it. The broken phone shows a red banner
+  "pyydä Konehuonetta!". Effects: Ohjaus turns only left · Taktiikka's radar is blurry and
+  the laser slow · Tiede's scan reaches half as far · Viestintä's message is partly ❓ ·
+  Operaatiot's warnings are hidden · Neuvonantaja's heart taps do nothing · Kapteeni's
+  screen slowly spins · Konehuone's repairs take twice the taps. Each fault still slows
+  the ship a bit (can't lose).
+- **Tehostukset (boosts).** The old energy split is removed (it had no real decisions).
+  Konehuone keeps a wobbly reactor needle in the green zone; that charges ⚡, which it
+  sends to a chosen station: a 10 s boost. Neuvonantaja's in-time heart taps charge 💖,
+  sent to a crewmate: a 6 s boost + morale. Boost effects: Ohjaus turns and flies faster ·
+  Taktiikka shoots twice as fast and twice as hard · Tiede scans instantly and twice as far ·
+  Viestintä gets more time and one wrong answer disappears · Operaatiot's tractor beam
+  reaches twice as far · Konehuone's taps count double · Neuvonantaja's taps count double ·
+  Kapteeni's red alert charges instantly. The boosted phone glows and says who sent it.
+- **Heikko kohta (weak spot).** A Tiede scan also finds weak spots on pirates within reach:
+  🎯 on the main screen and radar; Taktiikka's lasers do double damage on them.
+
+### 8b – information split
+- **Avaruusolioiden mieliala (alien mood).** Every call has a mood (😢 sad, 😴 sleepy,
+  🥳 party, 😡 grumpy, 🤔 curious, 🤢 queasy); the right answer depends on the mood
+  (😢 → 🤗💖, 😴 → 🤫💤 …). Only **Neuvonantaja** sees the mood; Viestintä sees the message
+  and three answers and has to ask. No Neuvonantaja → Viestintä sees the mood itself.
+- **Ennakkovaroitukset (early warnings).** Rock showers (5 rocks from one direction) and
+  pirates are announced ~8 s early – only on **Operaatiot's** phone, with the direction.
+  Operaatiot forwards a warning: to Taktiikka → its shields go up by themselves when the
+  shower hits; to Ohjaus → its phone shows the warning and arrow to dodge. No Operaatiot →
+  warnings forward themselves. The main screen shows the rocks only when they arrive.
+- The main screen keeps showing the action, but not the answers (no alien mood, no warnings).
