@@ -43,6 +43,12 @@ Everything in this game lives in these files; don't create new files.
 | Fog somewhere | `fog: true` on a place in `config.route`; size and scan effect: `config.science` |
 | Captain chooses between two places | `alt: { name, emoji, x, y }` on a place in `config.route` |
 | More hidden crystals / wormholes | `config.secrets` (`kind`, `x`, `y`; wormhole: `exit: { x, y, target }`); looks: `config.secretLooks` |
+| Aliens somewhere / what they say | `aliens: true` on a place; `config.aliens.messages` (`ask`, `right`, two `wrong`, all emoji) |
+| Aliens call more / less often | `config.aliens.randomEvery`, `.perVisit`, `.answerSeconds` |
+| Whale song somewhere | `song: true` on a place; how sleepy: `config.morale.songPerSecond`, `.songRadius` |
+| Mood goes up / down faster | `config.morale` (`hit`, `crystal`, `arrive`, `calm`, `slowAtZero`, `beat`) |
+| Cat comes more / less often | `config.cat.every`, `.firstAfter`, `.emoji` |
+| Tractor beam reach | `config.ops.tractorRange`, `.tractorCharge` |
 | Longer red alert | `config.captain.alertSeconds`, `.alertCharge`; route choice time: `.choiceSeconds` |
 | Funny console messages | `config.sillyLines` |
 | Console colours (orange, lilac …) | `config.lcars` |
@@ -60,13 +66,16 @@ Everything in this game lives in these files; don't create new files.
 - The main screen is the **host**: `Simulaatio` reads the phones' commands
   (`rooms/<code>/commands`), decides what happens and writes `phase` and `state` (`ShipState`, 5×/s).
 - Phone views live in `views` in `asemat.ts`: `html()` once, `live(ship)` on every state,
-  `hold(name, down)` for hold-down buttons (`data-hold`). Stations without a view show `waiting`.
+  `hold(name, down)` for hold-down buttons (`data-hold`). Every station now has its own view.
 - Danger: `spawnDangers` / `moveDangers` / `movePirate` / `hitShip` in `simulaatio.ts`;
   Taktiikka → `zap` + `raiseShields`, Konehuone → `moveEnergy` + `repair`, empty stations → `autopilots`.
   The main screen draws them in `drawThreats`, `zap`, `pop`, `hit`, `splat` (`paanaytto.ts`).
 - Discovery: `scan` / `checkSecrets` / `inFogArea` (Tiede), `chooseRoute` / `redAlert` (Kapteeni) in
   `simulaatio.ts`. Use `place(s, i)` – not `config.route[i]` – for the place the crew is really flying to.
   Main screen: `scanPulse`, `wormhole`, `crystal`, `drawFogAndAlert`.
+- People: `people` / `aliens` / `answer` / `shooCat` / `tractorBeam` / `ping` / `cheer` (mood) in `simulaatio.ts`.
+  The cat blocks a station's commands (`catOn`). Phones: `comms`, `ops`, `counselor` views, `catOverlay`, `pinged`.
+  Main screen: `drawPeople`, `alienCalls`, `alienAnswered`, `catNews`, `tractor`.
 - The main screen has two cameras: space is zoomed out (`ZOOM`), the console frame is not.
   Anything with `setScrollFactor(0)` goes to the frame camera automatically.
 - Helm sends held values to `inputs/ohjaus` (`turn`, `throttle`); `steer()` in `simulaatio.ts` reads them,

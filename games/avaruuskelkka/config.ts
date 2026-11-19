@@ -29,6 +29,19 @@ export interface Waypoint {
   fog?: boolean;
   /** Another place the Captain can choose to fly to instead of this one. */
   alt?: Waypoint;
+  /** Aliens live here and call when the ship comes close. */
+  aliens?: boolean;
+  /** The space whale sings here: the crew gets sleepy. */
+  song?: boolean;
+}
+
+export interface AlienMessage {
+  /** What the aliens say, in emoji. */
+  ask: string;
+  /** The friendly answer. */
+  right: string;
+  /** Two silly wrong answers. */
+  wrong: [string, string];
 }
 
 export interface SecretDef {
@@ -78,8 +91,8 @@ export const config = {
       name: 'Kivikaista', emoji: '🪨', x: 6400, y: 500, rocks: true,
       alt: { name: 'Hattarapilvet', emoji: '🍭', x: 5200, y: -3900 },
     },
-    { name: 'Pörröpäiden asema', emoji: '👾', x: 9200, y: -1500 },
-    { name: 'Avaruusvalaan laulupaikka', emoji: '🐋', x: 12000, y: 300, pirate: true },
+    { name: 'Pörröpäiden asema', emoji: '👾', x: 9200, y: -1500, aliens: true },
+    { name: 'Avaruusvalaan laulupaikka', emoji: '🐋', x: 12000, y: 300, pirate: true, song: true },
     { name: 'Planeetta Kotikolo', emoji: '🪐', x: 15000, y: -700 },
   ] as Waypoint[],
   /** How close the ship must fly to a place to "arrive" there. */
@@ -176,6 +189,56 @@ export const config = {
     choiceSeconds: 15,
   },
 
+  /** Mieliala – the crew's mood, 0–100. Low mood slows everything a bit (the game can't be lost). */
+  morale: {
+    start: 80,
+    /** Never lower than this. */
+    min: 10,
+    /** Lost when something hits the ship. */
+    hit: 6,
+    /** Lost every second while the space whale sings. */
+    songPerSecond: 3,
+    /** How far the whale's song reaches. */
+    songRadius: 2500,
+    /** Gained from a crystal, arriving at a place, and one good heartbeat tap by Neuvonantaja. */
+    crystal: 10,
+    arrive: 10,
+    calm: 4,
+    /** Speed lost when the mood is at 0 (0.3 = 30 %). */
+    slowAtZero: 0.3,
+    /** Seconds between heartbeats in Neuvonantaja's game. */
+    beat: 0.9,
+  },
+
+  /** Avaruusoliot – the aliens that call Viestintä. */
+  aliens: {
+    name: 'Pörröpäät',
+    emoji: '👾',
+    /** Messages per visit near a place with aliens: true. */
+    perVisit: 3,
+    /** Also a surprise call every this many seconds (0 = never). */
+    randomEvery: 80,
+    /** Seconds to answer before the aliens give up. */
+    answerSeconds: 20,
+    /** A friendly answer gives morale and a crystal; a rude one makes them throw this many pies. */
+    friendMorale: 15,
+    angryPies: 2,
+    messages: [
+      { ask: '👋🙂', right: '👋😄', wrong: ['😡👊', '🙈💤'] },
+      { ask: '🍕❓', right: '🍕👍', wrong: ['🧦👎', '🌋😱'] },
+      { ask: '🎵🎶', right: '💃🕺', wrong: ['🙉🛑', '🧹😴'] },
+      { ask: '🎁❓', right: '🙏💖', wrong: ['🗑️😝', '🦷😬'] },
+      { ask: '😢', right: '🤗💖', wrong: ['😂👉', '🥱'] },
+      { ask: '🐈❓', right: '🐈😻', wrong: ['🐕🚫', '🥒😾'] },
+    ] as AlienMessage[],
+  },
+
+  /** Avaruuskissa – sits on a console and blocks it until Operaatiot lures it away. */
+  cat: { emoji: '🐈', every: 45, firstAfter: 25 },
+
+  /** Operaatiot – the tractor beam pulls a found crystal to the ship. */
+  ops: { tractorRange: 1000, tractorCharge: 8 },
+
   /** Autopilotti – stations nobody picked do their job slowly. */
   autopilot: {
     /** Throttle button the autopilot uses (0–3). */
@@ -186,6 +249,13 @@ export const config = {
     fixEvery: 10,
     /** Tiede's autopilot scans every this many seconds. */
     scanEvery: 12,
+    /** Viestintä's autopilot answers after this many seconds, right this often (0.7 = 70 %). */
+    commsSeconds: 5,
+    commsRight: 0.7,
+    /** Operaatiot's autopilot lures the cat away after this many seconds. */
+    catSeconds: 10,
+    /** Neuvonantaja's autopilot adds this much mood every second. */
+    moralePerSecond: 1,
   },
 
   /** Tähtipäivä – the bridge's silly date, grows during the trip. */

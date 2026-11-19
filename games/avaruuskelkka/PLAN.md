@@ -9,7 +9,7 @@ flies the ship from the home base to a far-away destination planet. The game
 Made for the "Lapsi töihin" day: kids (8–13) change it by telling Claude their
 ideas, so almost everything they'd want to change lives in `config.ts`.
 
-Status: **phase 4 done** (discovery: scan, fog, wormhole, crystals, route choice, red alert) – next: phase 5 (people). Open decisions are marked **❓**.
+Status: **phase 5 done** (people: morale, aliens, cat, tractor beam, task pings) – next: phase 6 (polish). Note: an all-autopilot trip takes ~55 s (the wormhole); balance round length in phase 6. Open decisions are marked **❓**.
 
 ---
 
@@ -178,7 +178,7 @@ Also `?liity` = number-button pad for typing the room code without the QR code.
 2. ✅ **First flight** ⭐ first playable: simulation loop, main-screen map, Helm steers to destination, arrival screen. Other stations on autopilot.
 3. ✅ **Danger**: Tactical + Engineering + hull/energy; asteroid & pirate events.
 4. ✅ **Discovery**: Science (hidden things) + Captain (route choices, red alert).
-5. **People**: Comms (emoji aliens) + Ops (alerts, tractor beam) + Counselor (morale).
+5. ✅ **People**: Comms (emoji aliens) + Ops (alerts, tractor beam) + Counselor (morale).
 6. **Polish**: sounds (`@kit/sound`), particles, autopilot tuning, Wake Lock on phones, rejoin after reload.
 7. **Kid-ready**: README map, `meta.json`, recipes-style table of easy changes, playtest on real phones via GitHub Pages.
 

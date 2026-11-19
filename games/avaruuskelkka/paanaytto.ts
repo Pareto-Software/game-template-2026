@@ -9,7 +9,7 @@ import { online } from '@kit/firebase';
 import { storage } from '@kit/storage';
 import { sfx } from '@kit/sound';
 import { config, type Waypoint } from './config';
-import { Simulaatio, crewByStation, stardate, towards, hull, place, type Phase, type PlayerInfo, type Threat, type ThreatKind } from './simulaatio';
+import { Simulaatio, crewByStation, stardate, towards, hull, place, moodFace, type Phase, type PlayerInfo, type Threat, type ThreatKind } from './simulaatio';
 
 const W = 1280;
 const H = 720;
@@ -87,6 +87,11 @@ class Paanaytto extends Phaser.Scene {
   private alertGlow!: Phaser.GameObjects.Rectangle;
   private alertText!: Phaser.GameObjects.Text;
   private sirenTimer = 0;
+  private alien!: Phaser.GameObjects.Container;
+  private alienSays!: Phaser.GameObjects.Text;
+  private catSign!: Phaser.GameObjects.Container;
+  private catText!: Phaser.GameObjects.Text;
+  private noteTimer = 0;
 
   constructor(private code: string) {
     super('Paanaytto');
@@ -112,6 +117,11 @@ class Paanaytto extends Phaser.Scene {
       alert: () => { this.banner('PUNAINEN HÄLYTYS!', '#ff3333'); this.cameras.main.shake(300, 0.01); },
       choose: () => { sfx('click'); this.banner('Kapteeni, valitse reitti!', config.lcars[1]); },
       chosen: (w) => { sfx('coin'); this.banner(`Kurssi: ${w.name} ${w.emoji}`, config.lcars[0]); },
+      call: () => this.alienCalls(),
+      answered: (right) => this.alienAnswered(right),
+      cat: (i) => this.catNews(i),
+      tractor: (i) => this.tractor(i),
+      song: () => { sfx('roar', { pitch: 0.5 }); this.banner('Avaruusvalas laulaa… zZz 🐋', config.lcars[2]); },
     });
     this.makeStars();
     this.makeSpace();
@@ -120,6 +130,7 @@ class Paanaytto extends Phaser.Scene {
     this.makeSecrets();
     this.makeOverlay();
     this.makeFogAndAlert();
+    this.makePeople();
     this.makeFrame();
     this.makeLobby();
     this.makeFinish();
@@ -139,12 +150,13 @@ class Paanaytto extends Phaser.Scene {
     this.drawShipFx();
     this.drawSecrets();
     this.drawFogAndAlert(dt);
+    this.drawPeople(dt);
     const t = place(s, s.target);
     this.targetText.setText(`KOHDE: ${t.name.toUpperCase()} ${t.emoji}   ${Math.round(towards(s, t.x, t.y).distance)} KM`);
     this.dateText.setText(`TÄHTIPÄIVÄ ${stardate(s.time)}`);
     const faults = s.faults?.length ?? 0;
     const shields = s.shield > 0 ? 'KILVET YLHÄÄLLÄ 🛡️' : s.shieldCharge > 0 ? 'KILVET LATAUTUU' : 'KILVET VALMIINA';
-    this.statusText.setText(`RUNKO ${hull(s)}%   ${faults ? '💥'.repeat(faults) + ' VIKOJA ' + faults : 'EI VIKOJA'}   ${shields}   💎 ${s.stars}`);
+    this.statusText.setText(`RUNKO ${hull(s)}%   ${faults ? '💥'.repeat(faults) + ' VIKOJA ' + faults : 'EI VIKOJA'}   ${shields}   💎 ${s.stars}   ${moodFace(s.morale)} MIELIALA ${Math.round(s.morale)}%`);
     this.statusText.setColor(faults >= 3 ? '#ff5c5c' : config.lcars[2]);
   }
 
@@ -448,6 +460,86 @@ class Paanaytto extends Phaser.Scene {
         sfx('bounce', { pitch: blink ? 2 : 1.4, volume: 0.6 });
       }
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // People: alien calls, the space cat, the whale's song, the tractor beam
+  // ---------------------------------------------------------------------------
+
+  private makePeople() {
+    const a = config.aliens;
+    // The alien calls: a big face and a speech bubble in the corner of the viewscreen
+    this.alien = this.add.container(VS.x + 20, VS.y + VS.h - 20).setScrollFactor(0).setDepth(UI + 2).setVisible(false);
+    const face = this.add.image(90, -90, emojiTexture(this, 'olio', a.emoji, 128)).setDisplaySize(170, 170);
+    this.tweens.add({ targets: face, angle: 10, duration: 300, yoyo: true, repeat: -1 });
+    const bubble = this.add.graphics();
+    bubble.fillStyle(0xffffff, 1).fillRoundedRect(180, -200, 260, 120, 30).fillTriangle(180, -110, 210, -100, 160, -70);
+    this.alienSays = this.add.text(310, -140, '', { fontSize: '64px' }).setOrigin(0.5);
+    const who = label(this, 180, -40, `${a.name} soittaa! Viestintä, vastaa!`, 24, '#7cff6b');
+    this.alien.add([face, bubble, this.alienSays, who]);
+    // The cat sits on a console: a sign at the top right of the viewscreen
+    this.catSign = this.add.container(VS.x + VS.w - 20, VS.y + 20).setScrollFactor(0).setDepth(UI + 2).setVisible(false);
+    const cat = this.add.image(-60, 60, emojiTexture(this, 'kissa', config.cat.emoji, 96)).setDisplaySize(100, 100);
+    this.tweens.add({ targets: cat, y: 50, duration: 250, yoyo: true, repeat: -1 });
+    this.catText = label(this, -120, 40, '', 24, '#ffcc99').setOrigin(1, 0);
+    this.catSign.add([cat, this.catText]);
+  }
+
+  private drawPeople(dt: number) {
+    const s = sim!.ship;
+    const flying = sim!.phase === 'matka';
+    this.alien.setVisible(flying && !!s.call);
+    if (s.call) this.alienSays.setText(config.aliens.messages[s.call.msg].ask);
+    this.catSign.setVisible(flying && s.cat >= 0);
+    // The whale's song: notes float around the ship
+    if (flying && s.singing) {
+      this.noteTimer -= dt;
+      if (this.noteTimer <= 0) {
+        this.noteTimer = 0.35;
+        const note = this.add.text(s.x + (Math.random() - 0.5) * 500, s.y + (Math.random() - 0.5) * 300,
+          Math.random() < 0.5 ? '🎵' : 'zZz', { fontSize: '56px', color: '#9999ff' }).setOrigin(0.5).setDepth(7);
+        this.tweens.add({ targets: note, y: note.y - 200, alpha: 0, duration: 2000, onComplete: () => note.destroy() });
+      }
+    }
+  }
+
+  private alienCalls() {
+    sfx('click', { pitch: 2 });
+    this.time.delayedCall(150, () => sfx('click', { pitch: 2.5 }));
+    this.alien.setScale(0.3);
+    this.tweens.add({ targets: this.alien, scale: 1, duration: 400, ease: 'Back.out' });
+  }
+
+  private alienAnswered(right: boolean | null) {
+    const a = config.aliens;
+    if (right === true) { sfx('win'); this.banner(`${a.name}: YSTÄVÄT! 💖 +1 💎`, '#7cff6b'); }
+    if (right === false) { sfx('fart'); this.banner(`${a.name} loukkaantuivat! 😤🥧`, '#ff5c5c'); }
+    if (right === null) this.banner(`${a.name} lopettivat puhelun`, '#888888');
+  }
+
+  private catNews(station: number) {
+    if (station >= 0) {
+      const name = config.stations[station].name;
+      sfx('click', { pitch: 3 });
+      this.catText.setText(`KISSA ISTUU: ${name}`);
+      this.banner(`${config.cat.emoji} Kissa istuu konsolilla: ${name}!`, '#ffcc99');
+    } else {
+      sfx('coin');
+      this.banner('Kissa sai kalan 🐟 ja lähti', '#ffcc99');
+    }
+  }
+
+  /** A green beam pulls the crystal to the ship. */
+  private tractor(i: number) {
+    sfx('powerup', { pitch: 2 });
+    const s = sim!.ship;
+    const sec = config.secrets[i];
+    const beam = this.add.graphics().setDepth(6);
+    beam.lineStyle(30, 0x7cff6b, 0.4).lineBetween(s.x, s.y, sec.x, sec.y);
+    this.tweens.add({ targets: beam, alpha: 0, duration: 900, onComplete: () => beam.destroy() });
+    const gem = this.add.image(sec.x, sec.y, `salaisuus-${sec.kind}`).setDisplaySize(80, 80).setDepth(6);
+    this.tweens.add({ targets: gem, x: s.x, y: s.y, duration: 700, ease: 'Quad.in', onComplete: () => gem.destroy() });
+    this.banner('VETOSÄDE! +1 💎', '#7cff6b');
   }
 
   // ---------------------------------------------------------------------------

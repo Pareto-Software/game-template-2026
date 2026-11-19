@@ -10,7 +10,7 @@ import { storage } from '@kit/storage';
 import { sfx } from '@kit/sound';
 import { config, type StationDef } from './config';
 import {
-  paths, crewByStation, towards, angleDiff, stardate, hull, place,
+  paths, crewByStation, towards, angleDiff, stardate, hull, place, moodFace, callAnswers, stationIndex,
   type Phase, type PlayerInfo, type ShipState, type HelmInput, type Energy, type ThreatKind,
 } from './simulaatio';
 
@@ -378,8 +378,111 @@ const engineering: StationView = (() => {
   };
 })();
 
+/** Viestintä: the aliens talk in emoji – pick the friendly answer. */
+const comms: StationView = (() => {
+  let shown = '';
+  return {
+    html: () => { shown = ''; return `<div id="puhelu"></div><div class="silly" id="hassu"></div>`; },
+    live: (s) => {
+      const call = s.call ?? null;
+      const key = call ? `${call.msg}/${call.order.join('')}` : 'none';
+      if (key !== shown) {
+        shown = key;
+        const a = config.aliens;
+        $('puhelu')!.innerHTML = call
+          ? `<div class="call"><span class="alien">${a.emoji}</span><span class="says">${a.messages[call.msg].ask}</span></div>
+             <div class="hint">${a.name} soittaa! Mikä on ystävällinen vastaus? <span id="aika"></span></div>
+             <div class="answers">${callAnswers(call).map((ans, i) => `<button class="c${i + 1}" data-send="vastaa" data-value="${i}">${ans}</button>`).join('')}</div>`
+          : `<div class="info">Kuunnellaan avaruutta… 📡</div>`;
+      }
+      if (call) $('aika')!.textContent = `${call.time} s`;
+      $('hassu')!.textContent = call ? '' : config.sillyLines[Math.floor(s.time / 4) % config.sillyLines.length];
+    },
+  };
+})();
+
+/** Operaatiot: what needs doing right now, the cat, the tractor beam. */
+const ops: StationView = (() => {
+  let shown = '';
+  /** Jobs for the other stations, worked out from the ship's state. */
+  const tasks = (s: ShipState) => {
+    const list: [string, string][] = [];
+    const radar = s.radar ?? [];
+    const faults = s.faults?.length ?? 0;
+    if (faults) list.push(['konehuone', `Korjaa ${faults} ${faults === 1 ? 'vika' : 'vikaa'}!`]);
+    if (radar.some((t) => t.k === 'mohko')) list.push(['taktiikka', `${config.danger.pirate.name}! Laserit!`]);
+    else if (radar.some((t) => t.k === 'piirakka')) list.push(['taktiikka', 'Piirakoita tulossa! Kilvet!']);
+    if (radar.filter((t) => t.k === 'kivi').length >= 2) list.push(['ohjaus', 'Väistele kiviä!']);
+    if (s.fog) list.push(['tiede', 'Sumua! Skannaa!']);
+    if (s.call) list.push(['viestinta', `${config.aliens.name} soittaa!`]);
+    if (s.morale < 50) list.push(['neuvonantaja', 'Miehistö on väsynyt!']);
+    if (s.choice >= 0) list.push(['kapteeni', 'Valitse reitti!']);
+    return list;
+  };
+  return {
+    html: () => {
+      shown = '';
+      return `<div class="hint">Napauta tehtävää: asema saa hälytyksen 📢</div>
+      <div class="tasks" id="tehtavat"></div>
+      <div id="kissa"></div>
+      <button class="big c6" id="veto" data-send="veto">🧲 Vetosäde</button>`;
+    },
+    live: (s) => {
+      const list = tasks(s);
+      const key = list.map(([id, text]) => id + text).join('|') + `/${s.cat}`;
+      if (key !== shown) {
+        shown = key;
+        $('tehtavat')!.innerHTML = list.length
+          ? list.map(([id, text]) => {
+            const st = config.stations[stationIndex(id)];
+            return `<button class="task" data-send="tehtava" data-value="${stationIndex(id)}">${st.emoji} ${st.name}: ${text}</button>`;
+          }).join('')
+          : '<div class="info">Kaikki rauhallista… liian rauhallista 🤨</div>';
+        $('kissa')!.innerHTML = s.cat >= 0
+          ? `<button class="big catbtn" data-send="kissa">🐟 Houkuttele kissa pois<small>${config.cat.emoji} istuu: ${config.stations[s.cat].name}</small></button>`
+          : '';
+      }
+      const near = config.secrets.some((sec, i) => sec.kind === 'kristalli' && s.secrets[i] === 1
+        && towards(s, sec.x, sec.y).distance < config.ops.tractorRange);
+      const beam = $('veto') as HTMLButtonElement;
+      beam.disabled = s.tractorCharge > 0 || !near;
+      beam.textContent = s.tractorCharge > 0 ? `Vetosäde latautuu… ${s.tractorCharge}`
+        : near ? '🧲 Vetosäde: nappaa kristalli!' : '🧲 Vetosäde (ei kristallia lähellä)';
+    },
+  };
+})();
+
+/** Neuvonantaja: tap the heart in time to keep the crew happy. */
+const counselor: StationView & { beat: () => void } = (() => {
+  let started = 0;
+  return {
+    html: () => {
+      started = performance.now();
+      return `<div class="mood"><span id="naama"></span><div class="bar"><i id="mieli"></i></div></div>
+      <div class="hint" id="laulu"></div>
+      <button class="heart" data-beat="1" style="animation-duration: ${config.morale.beat}s">💖</button>
+      <div class="hint" id="palaute">Napauta sydäntä kun se on isoimmillaan!</div>`;
+    },
+    live: (s) => {
+      $('naama')!.textContent = moodFace(s.morale);
+      $('mieli')!.style.width = `${s.morale}%`;
+      $('laulu')!.textContent = s.singing ? '🐋 Avaruusvalas laulaa… pidä miehistö hereillä!' : `Mieliala ${s.morale} %`;
+    },
+    /** Big heart = the start of each beat. A tap close to it counts. */
+    beat: () => {
+      const phase = ((performance.now() - started) / 1000 / config.morale.beat) % 1;
+      const good = phase < 0.22 || phase > 0.88;
+      const feedback = $('palaute');
+      if (good) send('rauhoita');
+      sfx(good ? 'coin' : 'bounce', { pitch: good ? 1.5 : 0.7 });
+      if (feedback) feedback.textContent = good ? 'Hyvä! Tahdissa! 💖' : 'Hups! Odota isoa sydäntä';
+    },
+  };
+})();
+
 const views: Record<string, StationView> = {
   ohjaus: helm, kapteeni: captain, taktiikka: tactical, konehuone: engineering, tiede: science,
+  viestinta: comms, operaatiot: ops, neuvonantaja: counselor,
 };
 
 // ---------------------------------------------------------------------------
@@ -403,8 +506,38 @@ function render() {
 /** Updates the numbers of the current view. */
 function live() {
   document.body.classList.toggle('alert', now.phase === 'matka' && (now.ship?.alert ?? 0) > 0);
-  if (!now.me || !now.ship || now.phase !== 'matka') return;
+  if (!now.me || !now.ship || now.phase !== 'matka') { catOverlay(false); return; }
   (views[now.me.station] ?? waiting).live?.(now.ship);
+  const mine = stationIndex(now.me.station);
+  catOverlay(now.ship.cat === mine);
+  pinged(now.ship, mine);
+}
+
+/** The space cat sits on this phone's buttons. */
+function catOverlay(on: boolean) {
+  let el = document.getElementById('catcover');
+  if (on && !el) {
+    el = document.createElement('div');
+    el.id = 'catcover';
+    el.innerHTML = `<span>${config.cat.emoji}</span>Kissa istuu napeilla!<small>Pyydä Operaatioita houkuttelemaan se pois 🐟</small>`;
+    document.body.appendChild(el);
+    sfx('click', { pitch: 3 });
+  }
+  if (!on && el) el.remove();
+}
+
+let lastPing: number | null = null;
+/** Operaatiot buzzed this station: flash and vibrate. */
+function pinged(s: ShipState, mine: number) {
+  const n = s.ping?.s === mine ? s.ping.n : -1;
+  if (lastPing !== null && n !== -1 && n !== lastPing) {
+    document.body.classList.remove('ping');
+    void document.body.offsetWidth; // restart the flash animation
+    document.body.classList.add('ping');
+    navigator.vibrate?.(300);
+    sfx('powerup', { pitch: 2 });
+  }
+  if (n !== -1 || lastPing === null) lastPing = n;
 }
 
 /** A console bar: a rounded coloured end + title. */
@@ -461,7 +594,7 @@ function setUpPage() {
   document.body.appendChild(app);
   app.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('button');
-    if (!b || b.dataset.hold || b.dataset.zap || b.dataset.fix) return;
+    if (!b || b.dataset.hold || b.dataset.zap || b.dataset.fix || b.dataset.beat) return;
     sfx('click', { pitch: 1 + Math.random() }); // every console beeps a bit differently
     if (b.dataset.pick) pick(b.dataset.pick);
     if (b.dataset.send) send(b.dataset.send, b.dataset.value === undefined ? undefined : Number(b.dataset.value));
@@ -474,8 +607,9 @@ function setUpPage() {
   const holdButton = (e: PointerEvent) => (e.target as HTMLElement).closest<HTMLElement>('[data-hold]');
   // Radar targets and faults move and change all the time: react on touch, not on click
   app.addEventListener('pointerdown', (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-zap], [data-fix]');
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-zap], [data-fix], [data-beat]');
     if (!b) return;
+    if (b.dataset.beat) counselor.beat();
     if (b.dataset.zap) { send('ammu', Number(b.dataset.zap)); sfx('shoot'); }
     if (b.dataset.fix) { send('korjaa', Number(b.dataset.fix)); sfx('hit', { pitch: 2 }); b.classList.add('on'); }
   });
@@ -577,6 +711,27 @@ const CSS = `
   #sumu { color: #fff1b8; }
   body.alert { animation: redalert 0.5s infinite alternate; }
   @keyframes redalert { from { box-shadow: inset 0 0 0 0 #f00; } to { box-shadow: inset 0 0 60px 20px #f00; } }
+  .call { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 10px; }
+  .call .alien { font-size: 64px; animation: wobble 0.3s infinite alternate; }
+  .call .says { font-size: 48px; background: #fff; border-radius: 30px; padding: 8px 20px; white-space: nowrap; }
+  .answers { display: flex; flex-direction: column; gap: 10px; }
+  .answers button { font-size: 44px; padding: 12px; }
+  .tasks { display: flex; flex-direction: column; gap: 8px; }
+  .task { background: ${config.lcars[3]}; text-align: left; font-size: 18px; border-radius: 16px; }
+  .catbtn { background: #ffcc99; font-size: 24px; }
+  .mood { display: flex; align-items: center; gap: 12px; }
+  .mood #naama { font-size: 52px; }
+  .mood .bar { flex: 1; height: 28px; border-radius: 14px; background: #222; overflow: hidden; }
+  .mood .bar i { display: block; height: 100%; background: ${config.lcars[1]}; transition: width 0.3s; }
+  .heart { background: none; font-size: 110px; padding: 0; animation: beat infinite ease-out; }
+  .heart:active { transform: none; }
+  @keyframes beat { 0% { transform: scale(1.3); } 30% { transform: scale(0.9); } 100% { transform: scale(0.9); } }
+  #catcover { position: fixed; inset: 18% 6% auto 6%; background: #ffcc99; color: #000; border-radius: 30px; padding: 20px;
+    text-align: center; font-size: 26px; font-weight: bold; text-transform: uppercase; z-index: 10; box-shadow: 0 0 0 100vmax rgba(0,0,0,0.6); }
+  #catcover span { display: block; font-size: 120px; animation: wobble 0.3s infinite alternate; }
+  #catcover small { color: #333; }
+  body.ping { animation: ping 0.3s 5 alternate; }
+  @keyframes ping { from { background: #000; } to { background: ${config.lcars[3]}; } }
   .code { text-align: center; font-size: 56px; letter-spacing: 16px; color: ${config.lcars[0]}; }
   .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .pad button { background: ${config.lcars[1]}; font-size: 34px; padding: 18px 0; }

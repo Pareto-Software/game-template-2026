@@ -117,7 +117,42 @@ export interface ShipState {
   secrets: number[];
   /** Star crystals collected. */
   stars: number;
+  /** Mieliala: the crew's mood 0–100. */
+  morale: number;
+  /** The space whale is singing (the crew gets sleepy). */
+  singing: boolean;
+  /** An alien call waiting for Viestintä's answer, or null. */
+  call?: AlienCall | null;
+  /** The space cat sits on this station (index of config.stations), -1 = nowhere. */
+  cat: number;
+  /** Seconds until Operaatiot's tractor beam works again. */
+  tractorCharge: number;
+  /** Operaatiot buzzed this station (index of config.stations); n grows on every buzz. */
+  ping?: { s: number; n: number } | null;
 }
+
+/** msg = index of config.aliens.messages. order = how the 3 answers are shown: 0 = the right one. */
+export interface AlienCall {
+  msg: number;
+  order: number[];
+  /** Seconds left to answer. */
+  time: number;
+}
+
+/** The answers of a call in the order the phone shows them. */
+export function callAnswers(call: AlienCall) {
+  const m = config.aliens.messages[call.msg];
+  const all = [m.right, ...m.wrong];
+  return call.order.map((o) => all[o]);
+}
+
+/** A face for the crew's mood. */
+export function moodFace(morale: number) {
+  return morale >= 70 ? '😄' : morale >= 45 ? '🙂' : morale >= 25 ? '😐' : '😴';
+}
+
+/** Index of a station in config.stations. */
+export const stationIndex = (id: string) => config.stations.findIndex((x) => x.id === id);
 
 /** Firebase paths of one room. */
 export const paths = (code: string) => ({
@@ -175,6 +210,7 @@ function startState(): ShipState {
     energy: { ...config.energy.start }, faults: [], radar: [], shield: 0, shieldCharge: 0, reload: 0,
     alts: [], choice: -1, choiceTime: 0, alert: 0, alertCharge: 0, fog: false, fogClear: 0, scanCharge: 0,
     secrets: config.secrets.map(() => 0), stars: 0,
+    morale: config.morale.start, singing: false, call: null, cat: -1, tractorCharge: 0, ping: null,
   };
 }
 
@@ -210,6 +246,16 @@ export interface SimEvents {
   choose: () => void;
   /** The route was chosen: flying to this place. */
   chosen: (w: Waypoint) => void;
+  /** The aliens call (look at ship.call). */
+  call: () => void;
+  /** Viestintä answered: true = friends, false = oops, null = no answer in time. */
+  answered: (right: boolean | null) => void;
+  /** The cat sat on a station (index), or left (-1). */
+  cat: (station: number) => void;
+  /** The tractor beam pulled in this crystal (index of config.secrets). */
+  tractor: (i: number) => void;
+  /** The whale started singing. */
+  song: () => void;
 }
 
 /** The host side of a room: runs the ship and reacts to the phones. */
@@ -227,6 +273,13 @@ export class Simulaatio {
   private zapTimer = 0;
   private fixTimer = 0;
   private scanTimer = 4;
+  /** Alien calls still coming in this visit, and seconds until the next one. */
+  private callsLeft = 0;
+  private callGap = 0;
+  private randomCallTimer = config.aliens.randomEvery;
+  private visitedAliens = new Set<number>();
+  private catTimer = config.cat.firstAfter;
+  private catAge = 0;
   private nextId = 1;
   private p: ReturnType<typeof paths>;
   /** The edges of space: a bit outside the route. */
@@ -264,6 +317,10 @@ export class Simulaatio {
     this.threats = [];
     this.warpLeft = 0;
     this.pirateTimer = -1;
+    this.callsLeft = 0;
+    this.randomCallTimer = config.aliens.randomEvery;
+    this.visitedAliens.clear();
+    this.catTimer = config.cat.firstAfter;
     online.write(this.p.state, this.ship);
     this.setPhase('aula');
   }
@@ -287,6 +344,12 @@ export class Simulaatio {
     if (a === 'kapteeni:aloita') this.start();
     if (a === 'kapteeni:uusi' && this.phase === 'perilla') this.newTrip();
     if (this.phase !== 'matka') return;
+    if (this.catOn(c.station)) return; // the cat is sitting on the buttons!
+    if (a === 'viestinta:vastaa') this.answer(Number(c.value));
+    if (a === 'operaatiot:kissa') this.shooCat();
+    if (a === 'operaatiot:veto') this.tractorBeam();
+    if (a === 'operaatiot:tehtava') this.ping(Number(c.value));
+    if (a === 'neuvonantaja:rauhoita') this.cheer(config.morale.calm);
     if (a === 'ohjaus:warp') this.warp();
     if (a === 'taktiikka:ammu') this.zap(Number(c.value));
     if (a === 'taktiikka:kilvet') this.raiseShields();
@@ -315,6 +378,7 @@ export class Simulaatio {
     this.moveDangers(dt);
     this.tickTimers(dt);
     this.autopilots(dt);
+    this.people(dt);
     this.checkSecrets();
     this.checkArrival();
     // Send the state to the phones 5 times a second
@@ -339,7 +403,7 @@ export class Simulaatio {
     let turn = 0;
     if (this.manned('ohjaus')) {
       const helm = (this.inputs.ohjaus ?? {}) as Partial<HelmInput>;
-      turn = Math.sign(helm.turn ?? 0);
+      turn = this.catOn('ohjaus') ? 0 : Math.sign(helm.turn ?? 0);
       // Until the Helm picks a speed, keep the old one
       if (helm.throttle !== undefined) s.throttle = Math.max(0, Math.min(config.helm.speeds.length - 1, Math.round(helm.throttle)));
     } else {
@@ -357,7 +421,8 @@ export class Simulaatio {
     const s = this.ship;
     const engines = 1 + (s.energy.moottori - 2) * config.energy.enginePerPoint;
     const faults = Math.max(0.4, 1 - (s.faults?.length ?? 0) * config.faults.slowEach);
-    return engines * faults;
+    const mood = 1 - config.morale.slowAtZero * (1 - s.morale / 100);
+    return engines * faults * mood;
   }
 
   private move(dt: number) {
@@ -386,6 +451,7 @@ export class Simulaatio {
     const t = place(s, s.target);
     if (towards(s, t.x, t.y).distance > config.arriveDistance) return;
     this.on.arrived(s.target);
+    this.cheer(config.morale.arrive);
     if (s.target === config.route.length - 1) {
       this.threats = [];
       this.send();
@@ -470,6 +536,7 @@ export class Simulaatio {
       s.secrets[i] = 2;
       if (sec.kind === 'kristalli') {
         s.stars++;
+        this.cheer(config.morale.crystal);
         this.on.crystal(i);
       } else if (sec.exit) {
         // WHOOSH! Out of the other end, and on to the next place from there
@@ -576,6 +643,7 @@ export class Simulaatio {
     this.remove(t);
     const s = this.ship;
     const blocked = s.shield > 0;
+    if (!blocked) this.cheer(-config.morale.hit);
     if (!blocked && (s.faults?.length ?? 0) < config.faults.max) {
       s.faults = [...(s.faults ?? []), {
         id: this.nextId++, name: Math.floor(Math.random() * config.faults.names.length), left: config.faults.tapsToFix,
@@ -619,6 +687,7 @@ export class Simulaatio {
     s.alertCharge = Math.max(0, s.alertCharge - dt);
     s.scanCharge = Math.max(0, s.scanCharge - dt);
     s.fogClear = Math.max(0, s.fogClear - dt);
+    s.tractorCharge = Math.max(0, s.tractorCharge - dt);
     s.fog = this.inFogArea() && s.fogClear <= 0;
     if (s.choice >= 0) {
       // Nobody at the Captain's chair: the autopilot takes the first route quickly
@@ -654,6 +723,135 @@ export class Simulaatio {
   }
 
   // ---------------------------------------------------------------------------
+  // People: mood, aliens, the cat (Neuvonantaja, Viestintä, Operaatiot)
+  // ---------------------------------------------------------------------------
+
+  /** Changes the crew's mood (minus = worse), keeping it between min and 100. */
+  private cheer(amount: number) {
+    const s = this.ship;
+    s.morale = Math.max(config.morale.min, Math.min(100, s.morale + amount));
+  }
+
+  private catOn(station: string) {
+    return this.ship.cat >= 0 && config.stations[this.ship.cat]?.id === station;
+  }
+
+  private people(dt: number) {
+    const s = this.ship;
+    // The space whale sings: everybody gets sleepy
+    const singing = config.route.some((_, i) => {
+      const w = place(s, i);
+      return w.song && towards(s, w.x, w.y).distance < config.morale.songRadius;
+    });
+    if (singing && !s.singing) this.on.song();
+    s.singing = singing;
+    if (singing) this.cheer(-config.morale.songPerSecond * dt);
+    this.aliens(dt);
+    // The cat jumps on a console now and then (never on Operaatiot – they chase it)
+    if (s.cat >= 0) this.catAge += dt;
+    else {
+      this.catTimer -= dt;
+      if (this.catTimer <= 0) {
+        this.catTimer = config.cat.every;
+        const seats = config.stations.map((_, i) => i).filter((i) => config.stations[i].id !== 'operaatiot');
+        s.cat = seats[Math.floor(Math.random() * seats.length)];
+        this.catAge = 0;
+        this.on.cat(s.cat);
+      }
+    }
+  }
+
+  private shooCat() {
+    if (this.ship.cat < 0) return;
+    this.ship.cat = -1;
+    this.cheer(5);
+    this.on.cat(-1);
+  }
+
+  private aliens(dt: number) {
+    const s = this.ship;
+    // Near the aliens' home they call a few times; elsewhere sometimes a surprise call
+    config.route.forEach((_, i) => {
+      const w = place(s, i);
+      if (w.aliens && !this.visitedAliens.has(i) && towards(s, w.x, w.y).distance < 2200) {
+        this.visitedAliens.add(i);
+        this.callsLeft = config.aliens.perVisit;
+        this.callGap = 0.5;
+      }
+    });
+    if (config.aliens.randomEvery > 0) {
+      this.randomCallTimer -= dt;
+      if (this.randomCallTimer <= 0) {
+        this.randomCallTimer = config.aliens.randomEvery;
+        if (!this.callsLeft && !s.call) { this.callsLeft = 1; this.callGap = 0; }
+      }
+    }
+    if (s.call) {
+      s.call.time -= dt;
+      if (s.call.time <= 0) {
+        s.call = null;
+        this.callGap = 3;
+        this.on.answered(null);
+      }
+    } else if (this.callsLeft > 0) {
+      this.callGap -= dt;
+      if (this.callGap <= 0) {
+        this.callsLeft--;
+        const order = [0, 1, 2].sort(() => Math.random() - 0.5);
+        s.call = { msg: Math.floor(Math.random() * config.aliens.messages.length), order, time: config.aliens.answerSeconds };
+        this.on.call();
+      }
+    }
+  }
+
+  /** button = which of the 3 answer buttons was tapped. */
+  private answer(button: number) {
+    const s = this.ship;
+    if (!s.call || !(button in s.call.order)) return;
+    const right = s.call.order[button] === 0;
+    s.call = null;
+    this.callGap = 3;
+    if (right) {
+      this.cheer(config.aliens.friendMorale);
+      s.stars++;
+    } else {
+      // Offended aliens throw pies (cartoon pies, of course)
+      this.cheer(-config.morale.hit);
+      for (let k = 0; k < config.aliens.angryPies; k++) {
+        const a = rad(Math.random() * 360);
+        const x = s.x + Math.cos(a) * 700;
+        const y = s.y + Math.sin(a) * 700;
+        const speed = config.danger.pie.speed;
+        this.add('piirakka', x, y, -Math.cos(a) * speed, -Math.sin(a) * speed);
+      }
+    }
+    this.on.answered(right);
+  }
+
+  /** Pulls the nearest found crystal to the ship. */
+  private tractorBeam() {
+    const s = this.ship;
+    if (s.tractorCharge > 0) return;
+    let best = -1;
+    let bestDistance = config.ops.tractorRange;
+    config.secrets.forEach((sec, i) => {
+      const d = towards(s, sec.x, sec.y).distance;
+      if (sec.kind === 'kristalli' && s.secrets[i] === 1 && d < bestDistance) { best = i; bestDistance = d; }
+    });
+    if (best < 0) return;
+    s.tractorCharge = config.ops.tractorCharge;
+    s.secrets[best] = 2;
+    s.stars++;
+    this.cheer(config.morale.crystal);
+    this.on.tractor(best);
+  }
+
+  private ping(station: number) {
+    if (!config.stations[station]) return;
+    this.ship.ping = { s: station, n: (this.ship.ping?.n ?? 0) + 1 };
+  }
+
+  // ---------------------------------------------------------------------------
   // Autopilots for empty stations
   // ---------------------------------------------------------------------------
 
@@ -678,6 +876,13 @@ export class Simulaatio {
         this.scan();
       }
     }
+    const call = s.call;
+    if (!this.manned('viestinta') && call && call.time < config.aliens.answerSeconds - config.autopilot.commsSeconds) {
+      const right = Math.random() < config.autopilot.commsRight;
+      this.answer(call.order.indexOf(right ? 0 : 1 + Math.floor(Math.random() * 2)));
+    }
+    if (!this.manned('operaatiot') && s.cat >= 0 && this.catAge > config.autopilot.catSeconds) this.shooCat();
+    if (!this.manned('neuvonantaja')) this.cheer(config.autopilot.moralePerSecond * dt);
     if (!this.manned('konehuone') && s.faults?.length) {
       this.fixTimer -= dt;
       if (this.fixTimer <= 0) {
@@ -701,6 +906,8 @@ function roundState(s: ShipState, threats: Threat[]): ShipState {
     shield: Math.ceil(s.shield), shieldCharge: Math.ceil(s.shieldCharge), reload: Math.round(s.reload * 10) / 10,
     choiceTime: Math.ceil(s.choiceTime), alert: Math.ceil(s.alert), alertCharge: Math.ceil(s.alertCharge),
     fogClear: Math.ceil(s.fogClear), scanCharge: Math.ceil(s.scanCharge), secrets: [...s.secrets],
+    morale: Math.round(s.morale), tractorCharge: Math.ceil(s.tractorCharge),
+    call: s.call ? { ...s.call, time: Math.ceil(s.call.time) } : null,
     radar,
   };
 }
