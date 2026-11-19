@@ -141,6 +141,8 @@ export interface ShipState {
   warnings?: Warning[];
   /** Operaatiot buzzed this station (index of config.stations); n grows on every buzz. */
   ping?: { s: number; n: number } | null;
+  /** Matkaraportti: how many times each deed in config.report.deeds was done. */
+  deeds?: Record<string, number>;
 }
 
 /** msg = index of config.aliens.messages. order = how the 3 answers are shown: 0 = the right one. */
@@ -175,6 +177,22 @@ export interface Warning {
 export function sideText(relative: number) {
   const a = Math.abs(relative);
   return a < 45 ? 'edestä' : a > 135 ? 'takaa' : relative > 0 ? 'oikealta' : 'vasemmalta';
+}
+
+/** Teamwork points: deeds marked team: true in config.report.deeds. */
+export function teamwork(s: ShipState) {
+  return Object.entries(s.deeds ?? {}).reduce((sum, [k, n]) => sum + (config.report.deeds[k]?.team ? n : 0), 0);
+}
+
+/** "🔧 3 korjausta · ⚡ 2 virtaa" – what one station did on this trip ('' = nothing). */
+export function deedsOf(s: ShipState, station: string) {
+  return Object.entries(config.report.deeds)
+    .filter(([k, d]) => d.station === station && (s.deeds?.[k] ?? 0) > 0)
+    .map(([k, d]) => {
+      const [icon, ...words] = d.text.split(' ');
+      return `${icon} ${s.deeds![k]} ${words.join(' ')}`;
+    })
+    .join(' · ');
 }
 
 /** A face for the crew's mood. */
@@ -260,6 +278,7 @@ function startState(): ShipState {
     alts: [], choice: -1, choiceTime: 0, alert: 0, alertCharge: 0, fog: false, fogClear: 0, scanCharge: 0,
     secrets: config.secrets.map(() => 0), stars: 0,
     morale: config.morale.start, singing: false, call: null, cat: -1, tractorCharge: 0, ping: null, warnings: [],
+    deeds: {},
   };
 }
 
@@ -311,6 +330,8 @@ export interface SimEvents {
   requestDone: (r: CaptainRequest, ok: boolean | null) => void;
   /** A station got a boost: ⚡ from Konehuone or 💖 from Neuvonantaja. */
   boost: (station: number, by: 1 | 2) => void;
+  /** One station helped another (to = index of config.stations): the main screen shows icon flying over. */
+  helped: (from: string, to: number, icon: string) => void;
 }
 
 /** The host side of a room: runs the ship and reacts to the phones. */
@@ -322,7 +343,7 @@ export class Simulaatio {
   private inputs: Record<string, Record<string, number | boolean>> = {};
   private warpLeft = 0;
   private sendTimer = 0;
-  private rockTimer = 3;
+  private rockTimer = config.danger.rock.firstAfter;
   /** Seconds until this leg's pirate shows up (-1 = no pirate coming). */
   private pirateTimer = -1;
   private zapTimer = 0;
@@ -338,6 +359,7 @@ export class Simulaatio {
   private showerTimer = config.warnings.firstAfter;
   /** Where this leg's pirate comes from (it was announced to Operaatiot). */
   private pirateDir = 0;
+  private pirateWarned = false;
   /** When the shields go up by themselves (after a forwarded rock shower warning). */
   private autoShieldAt = -1;
   /** Neuvonantaja's good heart taps since the last 💖, and when Konehuone last sent ⚡. */
@@ -376,7 +398,7 @@ export class Simulaatio {
     if (phase !== 'matka' || !saved) return this.newTrip();
     const fresh = startState();
     this.ship = {
-      ...fresh, ...saved, alts: saved.alts ?? [], radar: [], call: null, requests: [], warnings: [],
+      ...fresh, ...saved, alts: saved.alts ?? [], radar: [], call: null, requests: [], warnings: [], deeds: saved.deeds ?? {},
       faults: (saved.faults ?? []).filter((f) => typeof f.station === 'number'), // older saves had other faults
       boosts: fresh.boosts, boostBy: fresh.boostBy,
     };
@@ -396,6 +418,7 @@ export class Simulaatio {
     this.ship = startState();
     this.threats = [];
     this.warpLeft = 0;
+    this.rockTimer = config.danger.rock.firstAfter;
     this.pirateTimer = -1;
     this.callsLeft = 0;
     this.randomCallTimer = config.aliens.randomEvery;
@@ -456,6 +479,7 @@ export class Simulaatio {
     if (this.ship.warpCharge > 0) return;
     this.warpLeft = config.helm.warpSeconds;
     this.ship.warpCharge = config.helm.warpSeconds + config.helm.warpCharge;
+    this.deed('warp');
     this.on.warp();
   }
 
@@ -480,6 +504,12 @@ export class Simulaatio {
       this.sendTimer = 0.2;
       this.send();
     }
+  }
+
+  /** Counts one deed for the crew report (config.report.deeds). */
+  private deed(key: string, n = 1) {
+    const d = (this.ship.deeds ??= {});
+    d[key] = (d[key] ?? 0) + n;
   }
 
   private send() {
@@ -546,6 +576,7 @@ export class Simulaatio {
     const t = place(s, s.target);
     if (towards(s, t.x, t.y).distance > config.arriveDistance) return;
     this.on.arrived(s.target);
+    this.deed('paikka');
     this.cheer(config.morale.arrive);
     if (s.target === config.route.length - 1) {
       this.threats = [];
@@ -571,10 +602,8 @@ export class Simulaatio {
 
   /** A pirate on this leg: it arrives in a few seconds, and Operaatiot gets a warning. */
   private pirateComing(yes?: boolean) {
-    this.pirateTimer = yes ? config.warnings.lead : -1;
-    if (!yes) return;
-    this.pirateDir = this.ship.heading + 180 + random(-60, 60);
-    this.warn('mohko', this.pirateDir, config.warnings.lead);
+    this.pirateTimer = yes ? Math.max(config.warnings.lead, config.danger.pirate.arrivesAfter) : -1;
+    this.pirateWarned = false;
   }
 
   // ---------------------------------------------------------------------------
@@ -623,7 +652,12 @@ export class Simulaatio {
     if (faultAt(s, 'tiede')) radius /= 2; // broken: coughing scanner
     if (boosted(s, 'tiede')) { radius *= 2; s.scanCharge = 0; }
     // Weak spots of pirates nearby
-    for (const t of this.threats) if (t.kind === 'mohko' && towards(s, t.x, t.y).distance < radius) t.weak = true;
+    for (const t of this.threats) {
+      if (t.kind !== 'mohko' || t.weak || towards(s, t.x, t.y).distance >= radius) continue;
+      t.weak = true;
+      this.deed('heikko');
+      this.on.helped('tiede', stationIndex('taktiikka'), '🎯');
+    }
     const found: number[] = [];
     config.secrets.forEach((sec, i) => {
       if (s.secrets[i] === 0 && towards(s, sec.x, sec.y).distance < radius) {
@@ -631,6 +665,7 @@ export class Simulaatio {
         found.push(i);
       }
     });
+    if (found.length) this.deed('loyto', found.length);
     this.on.scan(found);
   }
 
@@ -685,6 +720,7 @@ export class Simulaatio {
     const r: CaptainRequest = { id: this.nextId++, from: stationIndex(station), what, time: config.captain.requestSeconds };
     s.requests = [...(s.requests ?? []), r];
     this.on.request(r);
+    this.on.helped(station, stationIndex('kapteeni'), '📨');
   }
 
   private answerRequest(id: number, ok: boolean) {
@@ -694,6 +730,8 @@ export class Simulaatio {
     s.requests = s.requests!.filter((x) => x !== r);
     this.on.requestDone(r, ok);
     if (!ok) { this.askAgainAt[r.what] = s.time + 4; return; }
+    this.deed('lupa');
+    this.on.helped('kapteeni', r.from, '✅');
     if (r.what === 'warp') this.warp();
     if (r.what === 'madonreika') this.jumpThrough();
     if (r.what === 'veto') this.tractorBeam();
@@ -747,6 +785,12 @@ export class Simulaatio {
     }
     if (this.pirateTimer > 0) {
       this.pirateTimer -= dt;
+      // Operaatiot sees the pirate coming a few seconds early
+      if (!this.pirateWarned && this.pirateTimer <= config.warnings.lead) {
+        this.pirateWarned = true;
+        this.pirateDir = s.heading + 180 + random(-60, 60);
+        this.warn('mohko', this.pirateDir, this.pirateTimer);
+      }
       if (this.pirateTimer <= 0) {
         const a = rad(this.pirateDir);
         const p = this.add('mohko', s.x + Math.cos(a) * 900, s.y + Math.sin(a) * 900, 0, 0, config.danger.pirate.hp);
@@ -788,13 +832,13 @@ export class Simulaatio {
       t.vy = Math.sin(rad(away)) * 500;
       return;
     }
-    t.orbit += 25 * dt;
+    t.orbit += cfg.circleSpeed * dt;
     const goalX = s.x + Math.cos(rad(t.orbit)) * 420;
     const goalY = s.y + Math.sin(rad(t.orbit)) * 420;
     t.vx = (goalX - t.x) * 1.5;
     t.vy = (goalY - t.y) * 1.5;
     t.timer -= dt;
-    if (t.timer <= 0 && t.age > 3) {
+    if (t.timer <= 0 && t.age > 5) {
       t.timer = cfg.throwsEvery;
       const aim = towards(t, s.x, s.y);
       const speed = config.danger.pie.speed;
@@ -811,7 +855,8 @@ export class Simulaatio {
     this.remove(t);
     const s = this.ship;
     const blocked = s.shield > 0;
-    if (!blocked) this.cheer(-config.morale.hit);
+    if (blocked) this.deed('torjuttu');
+    else this.cheer(-config.morale.hit);
     // Something breaks: one station's console that isn't broken yet
     const working = config.stations.map((_, i) => i).filter((i) => !s.faults?.some((f) => f.station === i));
     if (!blocked && working.length) {
@@ -839,6 +884,7 @@ export class Simulaatio {
     this.on.zap(t);
     if (t.hp <= 0) {
       this.remove(t);
+      this.deed('poks');
       this.on.pop(t);
     }
   }
@@ -897,6 +943,7 @@ export class Simulaatio {
     if (!config.stations[station] || config.stations[station].id === 'konehuone') return;
     if (s.time - this.lastPower < config.boosts.power.chargeSeconds) return;
     this.lastPower = s.time;
+    this.deed('virta');
     this.giveBoost(station, config.boosts.power.seconds, 1);
   }
 
@@ -904,6 +951,7 @@ export class Simulaatio {
   private cheerBoost(station: number) {
     if (!config.stations[station] || this.heartBeats < config.boosts.cheer.beats) return;
     this.heartBeats = 0;
+    this.deed('kannustus');
     this.cheer(config.boosts.cheer.morale);
     this.giveBoost(station, config.boosts.cheer.seconds, 2);
   }
@@ -918,6 +966,7 @@ export class Simulaatio {
     if (id === 'tiede') s.scanCharge = 0;
     if (id === 'viestinta' && s.call) s.call.time += 10;
     this.on.boost(station, by);
+    this.on.helped(by === 1 ? 'konehuone' : 'neuvonantaja', station, by === 1 ? '⚡' : '💖');
   }
 
   private repair(id: number, taps: number) {
@@ -927,7 +976,9 @@ export class Simulaatio {
     f.left -= taps;
     if (f.left <= 0) {
       s.faults = s.faults!.filter((x) => x !== f);
+      this.deed('korjaus');
       this.on.fixed();
+      this.on.helped('konehuone', f.station, '🔧');
     }
   }
 
@@ -972,6 +1023,8 @@ export class Simulaatio {
 
   private shooCat() {
     if (this.ship.cat < 0) return;
+    this.deed('kissa');
+    this.on.helped('operaatiot', this.ship.cat, '🐟');
     this.ship.cat = -1;
     this.cheer(5);
     this.on.cat(-1);
@@ -1026,6 +1079,8 @@ export class Simulaatio {
     if (right) {
       this.cheer(config.aliens.friendMorale);
       s.stars++;
+      this.deed('ystava');
+      if (this.manned('neuvonantaja')) this.on.helped('neuvonantaja', stationIndex('viestinta'), '💬');
     } else {
       // Offended aliens throw pies (cartoon pies, of course)
       this.cheer(-config.morale.hit);
@@ -1084,6 +1139,8 @@ export class Simulaatio {
     const w = this.ship.warnings?.find((x) => x.id === id);
     if (!w || !config.stations[station] || w.sent?.includes(station)) return;
     w.sent = [...(w.sent ?? []), station];
+    this.deed('varoitus');
+    this.on.helped('operaatiot', station, '📢');
   }
 
   private tickWarnings(dt: number) {
@@ -1117,11 +1174,11 @@ export class Simulaatio {
       const x = s.x + Math.cos(a) * d;
       const y = s.y + Math.sin(a) * d;
       const aim = towards({ x, y }, s.x + random(-150, 150), s.y + random(-150, 150));
-      const speed = rock.speed * random(1.5, 2.1);
+      const speed = rock.speed * random(1.7, 2.0);
       this.add('kivi', x, y, Math.cos(rad(aim.angle)) * speed, Math.sin(rad(aim.angle)) * speed);
     }
     // Taktiikka was warned: shields go up by themselves a moment before the rocks get here
-    if (w.sent?.includes(stationIndex('taktiikka'))) this.autoShieldAt = s.time + 3.5;
+    if (w.sent?.includes(stationIndex('taktiikka'))) this.autoShieldAt = s.time + 5;
   }
 
   // ---------------------------------------------------------------------------

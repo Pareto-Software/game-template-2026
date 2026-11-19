@@ -11,7 +11,7 @@ import { sfx } from '@kit/sound';
 import { config, type StationDef } from './config';
 import {
   paths, crewByStation, towards, angleDiff, stardate, hull, place, moodFace, callAnswers, stationIndex,
-  faultAt, faultText, boosted, sideText,
+  faultAt, faultText, boosted, sideText, deedsOf, teamwork,
   type Phase, type PlayerInfo, type ShipState, type HelmInput, type ThreatKind, type Warning,
 } from './simulaatio';
 
@@ -408,12 +408,12 @@ const engineering: StationView & { reset: () => void } = (() => {
   let speed = 0;
   let charge = 0;
   let timer = 0;
-  const green = [35, 65];
+  const green = [30, 70];
   /** The needle wobbles by itself; in the green zone the ⚡ charges. */
   const tick = () => {
     const bar = $('neula');
     if (!bar) { clearInterval(timer); return; }
-    speed = Math.max(-3, Math.min(3, speed + (Math.random() - 0.5) * 2.4));
+    speed = Math.max(-1.8, Math.min(1.8, speed + (Math.random() - 0.5) * 1.4));
     needle += speed;
     if (needle < 0 || needle > 100) { needle = Math.max(0, Math.min(100, needle)); speed = -speed; }
     const inGreen = needle >= green[0] && needle <= green[1];
@@ -613,7 +613,7 @@ const counselor: StationView & { beat: () => void; reset: () => void } = (() => 
     /** Big heart = the start of each beat. A tap close to it counts. */
     beat: () => {
       const phase = ((performance.now() - started) / 1000 / config.morale.beat) % 1;
-      const inTime = phase < 0.22 || phase > 0.88;
+      const inTime = phase < 0.28 || phase > 0.82;
       const feedback = $('palaute');
       const broken = !!(now.ship && faultAt(now.ship, 'neuvonantaja'));
       if (inTime && !broken) {
@@ -653,7 +653,7 @@ function render() {
 /** Updates the numbers of the current view. */
 function live() {
   document.body.classList.toggle('alert', now.phase === 'matka' && (now.ship?.alert ?? 0) > 0);
-  if (!now.me || !now.ship || now.phase !== 'matka') { catOverlay(false); return; }
+  if (!now.me || !now.ship || now.phase !== 'matka') { catOverlay(false); document.body.classList.remove('boost'); return; }
   (views[now.me.station] ?? waiting).live?.(now.ship);
   const mine = stationIndex(now.me.station);
   catOverlay(now.ship.cat === mine);
@@ -730,21 +730,43 @@ function showPicker() {
     </div>`);
 }
 
+/** Ohjekortti: what this station does and who it works with (config.stations[].howTo). */
+function howToCard(s: StationDef) {
+  const lines = s.howTo?.length ? s.howTo : [s.job];
+  return `<div class="howto"><b>Näin pelaat: ${s.emoji} ${s.name}</b>${lines.map((l) => `<div>${l}</div>`).join('')}</div>`;
+}
+
 function showStation(s: StationDef) {
+  const help = now.phase === 'matka' ? '<button class="helpbtn" data-go="ohje">❓</button>' : '';
   const header = `<header>
       <span class="pill c0">${s.emoji}</span><span><b>${s.name}</b><small>${s.job}</small></span>
-      <i style="background:${now.me!.colour}"></i>
+      ${help}<i style="background:${now.me!.colour}"></i>
     </header>`;
   if (now.phase === 'aula') {
     const startButton = s.id === 'kapteeni' ? `<button class="big c0" data-send="aloita">🚀 Tehkää niin!</button>` : '';
-    show(`${header}<div class="info">Odotetaan lähtöä… ⏳</div>${startButton}
+    show(`${header}${howToCard(s)}<div class="hint">Odotetaan lähtöä… ⏳</div>${startButton}
       <button class="small" data-go="vaihda">↩️ Vaihda asemaa</button>`);
   } else if (now.phase === 'perilla') {
     const again = s.id === 'kapteeni' ? `<button class="big c1" data-send="uusi">🔄 Uusi matka</button>` : '';
-    show(`${header}<div class="info">🎉 Perillä! 🎉<small>Hyvää työtä, miehistö!</small></div>${again}`);
+    const ship = now.ship;
+    const mine = ship ? deedsOf(ship, s.id) : '';
+    const team = ship ? `<div class="hint">🤝 Koko miehistön yhteistyö: ${teamwork(ship)}</div>` : '';
+    show(`${header}<div class="info">🎉 Perillä! 🎉<small>Hyvää työtä, miehistö!</small></div>
+      ${mine ? `<div class="howto"><b>Sinun asemasi teki:</b><div>${mine}</div></div>` : ''}${team}${again}`);
   } else {
     show(`${header}${(views[s.id] ?? waiting).html()}`);
   }
+}
+
+/** The ❓ button: shows the how-to card on top of the station until "Selvä!". */
+function helpOverlay(on: boolean) {
+  document.getElementById('ohje')?.remove();
+  const s = config.stations.find((x) => x.id === now.me?.station);
+  if (!on || !s) return;
+  const el = document.createElement('div');
+  el.id = 'ohje';
+  el.innerHTML = `${howToCard(s)}<button class="big c0" data-go="ohje-pois">👍 Selvä!</button>`;
+  app.appendChild(el);
 }
 
 // ---------------------------------------------------------------------------
@@ -774,6 +796,8 @@ function setUpPage() {
     if (b.dataset.throttle) helm.setThrottle(Number(b.dataset.throttle));
     if (b.dataset.reactor) (engineering as unknown as { nudge: (w: number) => void }).nudge(Number(b.dataset.reactor));
     if (b.dataset.go === 'vaihda') standUp();
+    if (b.dataset.go === 'ohje') helpOverlay(true);
+    if (b.dataset.go === 'ohje-pois') helpOverlay(false);
     if (b.dataset.go === 'liity') location.search = '?liity';
   });
   // Buttons that work while held down (steering)
@@ -851,6 +875,12 @@ const CSS = `
   .pill { font-size: 34px; width: 70px; height: 64px; display: grid; place-items: center; border-radius: 32px 0 0 32px; }
   .dots i, header i { display: inline-block; width: 18px; height: 18px; border-radius: 50%; margin-left: 4px; }
   header i { width: 28px; height: 28px; }
+  .helpbtn { background: #222; color: #fff; font-size: 22px; padding: 6px 12px; }
+  .howto { background: #111; border: 3px solid ${lcars[0]}; border-radius: 18px; padding: 12px 14px; display: flex;
+    flex-direction: column; gap: 10px; font-size: 19px; line-height: 1.25; }
+  .howto b { color: ${lcars[0]}; font-size: 21px; }
+  #ohje { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 20; padding: 14px; display: flex;
+    flex-direction: column; gap: 14px; justify-content: center; max-width: 520px; margin: 0 auto; }
   .info { text-align: center; font-size: 26px; padding: 22px 0; text-transform: uppercase; color: ${lcars[4]}; }
   .big { font-size: 28px; padding: 18px; }
   .small { background: #222; color: #fff; font-size: 18px; padding: 12px; margin-top: auto; }
@@ -881,7 +911,7 @@ const CSS = `
   .radar .dot.far { opacity: 0.4; }
   .hint { text-align: center; font-size: 18px; color: ${lcars[4]}; text-transform: uppercase; }
   .reactor { position: relative; height: 44px; border-radius: 22px; background: #401010; overflow: hidden; }
-  .reactor .zone { position: absolute; left: 35%; width: 30%; top: 0; bottom: 0; background: #1f6d2a; }
+  .reactor .zone { position: absolute; left: 30%; width: 40%; top: 0; bottom: 0; background: #1f6d2a; }
   .reactor.ok .zone { background: #3dcc55; }
   .reactor .needle { position: absolute; top: 0; bottom: 0; width: 8px; margin-left: -4px; background: #fff; border-radius: 4px; }
   .charge { height: 18px; border-radius: 9px; background: #222; overflow: hidden; }

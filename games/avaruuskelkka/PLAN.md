@@ -287,3 +287,15 @@ or its information shows on the other phone itself – a trip with 2–3 kids st
   shower hits; to Ohjaus → its phone shows the warning and arrow to dodge. No Operaatiot →
   warnings forward themselves. The main screen shows the rocks only when they arrive.
 - The main screen keeps showing the action, but not the answers (no alien mood, no warnings).
+
+### 8c – learning, seeing and pace ✅
+- **Ohjekortti:** every phone shows its station's how-to card (`config.stations[].howTo`) while waiting,
+  and behind a ❓ button during the trip.
+- **Teamwork on the main screen:** the left column has one block per station with status icons
+  (🤖 autopilot, 💥 broken, ⚡/💖 boosted, 🐈 cat, 📨 requests waiting). Every helping act flies an icon
+  from one block to the other (📨 ✅ ⚡ 💖 🔧 📢 🎯 🐟 💬).
+- **Matkaraportti:** at the end the main screen lists what every station did, plus a 🤝 teamwork total;
+  each phone shows its own deeds.
+- **Slower and calmer for kids:** ship ~40 % slower (autopilot trip ~3.5 min), slower rocks, pies and
+  pirate, first rock at 12 s, pirate 35 s into its leg, first rock shower at 40 s, cat at 60 s; longer
+  request / answer / route-choice times, easier reactor and heart rhythm.

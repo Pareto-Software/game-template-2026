@@ -57,6 +57,10 @@ Everything in this game lives in these files; don't create new files.
 | Tractor beam reach | `config.ops.tractorRange`, `.tractorCharge` |
 | Longer / shorter trip | move the places in `config.route` further apart / closer (an autopilot-only trip is ~2 min) |
 | Longer red alert | `config.captain.alertSeconds`, `.alertCharge`; route choice time: `.choiceSeconds` |
+| Slower / faster game overall | `config.helm.speeds`, `.turnSpeed`, `config.danger` (`speed`, `every`, `throwsEvery`, `circleSpeed`, `arrivesAfter`), `config.warnings.showerEvery` |
+| Calmer start | `config.danger.rock.firstAfter`, `config.danger.pirate.arrivesAfter`, `config.warnings.firstAfter`, `config.cat.firstAfter` |
+| Help card text on a phone | `config.stations[].howTo` (shown before the trip and behind ❓) |
+| Crew report at the end | `config.report.deeds` (`station`, `text`, `team: true` = counts as 🤝 teamwork) |
 | Funny console messages | `config.sillyLines` |
 | Console colours (orange, lilac …) | `config.lcars` |
 | Stardate | `config.stardate` |
@@ -114,6 +118,9 @@ partner station its part is automatic (autopilot), or its information shows on t
 - People: `people` / `aliens` / `answer` / `shooCat` / `tractorBeam` / `ping` / `cheer` (mood) in `simulaatio.ts`.
   The cat blocks a station's commands (`catOn`). Phones: `comms`, `ops`, `counselor` views, `catOverlay`, `pinged`.
   Main screen: `drawPeople`, `alienCalls`, `alienAnswered`, `catNews`, `tractor`.
+- Teamwork you can see: `deed()` counts things for the crew report (`deedsOf`, `teamwork`); `on.helped(from, to, icon)`
+  makes the main screen fly an icon between the crew blocks on the left (`makeCrew` / `drawCrew` / `helped` in `paanaytto.ts`).
+  Phones: `howToCard` + `helpOverlay` (❓), own deeds on the "Perillä" screen.
 - A reload of the main screen continues the trip (`resume` in `simulaatio.ts`): same room, same ship.
   Phones keep the screen on with the Screen Wake Lock (`keepAwake` in `asemat.ts`).
 - The main screen has two cameras: space is zoomed out (`ZOOM`), the console frame is not.

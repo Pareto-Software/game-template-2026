@@ -9,7 +9,10 @@ import { online } from '@kit/firebase';
 import { storage } from '@kit/storage';
 import { sfx } from '@kit/sound';
 import { config, type Waypoint } from './config';
-import { Simulaatio, crewByStation, stardate, towards, hull, place, moodFace, type Phase, type PlayerInfo, type Threat, type ThreatKind } from './simulaatio';
+import {
+  Simulaatio, crewByStation, stardate, towards, hull, place, moodFace, deedsOf, teamwork, stationIndex,
+  type Phase, type PlayerInfo, type Threat, type ThreatKind,
+} from './simulaatio';
 
 const W = 1280;
 const H = 720;
@@ -94,8 +97,10 @@ class Paanaytto extends Phaser.Scene {
   private catSign!: Phaser.GameObjects.Container;
   private catText!: Phaser.GameObjects.Text;
   private noteTimer = 0;
-  private blockLabels: Phaser.GameObjects.Text[] = [];
   private beepTimer = 2;
+  /** The crew column on the left: one console block per station, with its status icons. */
+  private crewBlocks: { box: Phaser.GameObjects.Container; status: Phaser.GameObjects.Text; x: number; y: number }[] = [];
+  private reportText!: Phaser.GameObjects.Text;
 
   constructor(private code: string) {
     super('Paanaytto');
@@ -139,6 +144,7 @@ class Paanaytto extends Phaser.Scene {
         sfx('powerup', { pitch: 2 });
         this.banner(`${by === 1 ? '⚡ Virtaa' : '💖 Kannustusta'}: ${config.stations[i].name}!`, by === 1 ? '#ffee55' : '#ff8fd0');
       },
+      helped: (from, to, icon) => this.helped(from, to, icon),
     });
     this.makeStars();
     this.makeSpace();
@@ -169,6 +175,7 @@ class Paanaytto extends Phaser.Scene {
     this.drawFogAndAlert(dt);
     this.drawPeople(dt);
     this.busyBridge(dt);
+    this.drawCrew();
     const t = place(s, s.target);
     this.targetText.setText(`KOHDE: ${t.name.toUpperCase()} ${t.emoji}   ${Math.round(towards(s, t.x, t.y).distance)} KM`);
     this.dateText.setText(`TÄHTIPÄIVÄ ${stardate(s.time)}`);
@@ -635,8 +642,70 @@ class Paanaytto extends Phaser.Scene {
     if (this.beepTimer > 0) return;
     this.beepTimer = 1 + Math.random() * 3;
     sfx('click', { pitch: 1.5 + Math.random() * 2, volume: 0.3 });
-    const block = Phaser.Utils.Array.GetRandom(this.blockLabels);
-    block.setText(`${10 + Math.floor(Math.random() * 90)}-${'ABKXQZ'[Math.floor(Math.random() * 6)]}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Miehistö: the crew column on the left shows who needs whom
+  // ---------------------------------------------------------------------------
+
+  /** One console block per station in the left column (emoji, name, status icons). */
+  private makeCrew() {
+    const top = 130;
+    const step = Math.min(58, 455 / config.stations.length);
+    const h = step - 6;
+    config.stations.forEach((st, i) => {
+      const y = top + i * step;
+      const box = this.add.container(0, y).setScrollFactor(0).setDepth(FRAME + 1);
+      const bg = this.add.rectangle(0, 0, 130, h, LC[i % LC.length]).setOrigin(0);
+      const icon = this.add.image(22, h / 2, emojiTexture(this, `asema-${st.id}`, st.emoji, 64)).setDisplaySize(h * 0.6, h * 0.6);
+      const name = label(this, 44, 3, st.name, 15);
+      name.setScale(Math.min(1, 82 / name.width));
+      const status = this.add.text(44, h - 4, '', { fontSize: `${Math.round(h * 0.38)}px` }).setOrigin(0, 1);
+      box.add([bg, icon, name, status]);
+      this.crewBlocks.push({ box, status, x: 65, y: y + h / 2 });
+    });
+  }
+
+  /** Status icons: 💥 broken, ⚡/💖 boosted, 🐈 the cat, 📨 requests waiting (Captain), 🤖 autopilot. */
+  private drawCrew() {
+    const s = sim!.ship;
+    config.stations.forEach((st, i) => {
+      const b = this.crewBlocks[i];
+      if (!b) return;
+      const icons: string[] = [];
+      if (!sim!.manned(st.id)) icons.push('🤖');
+      if (s.faults?.some((f) => f.station === i)) icons.push('💥');
+      if ((s.boosts?.[i] ?? 0) > 0) icons.push(s.boostBy?.[i] === 2 ? '💖' : '⚡');
+      if (s.cat === i) icons.push(config.cat.emoji);
+      if (st.id === 'kapteeni' && s.requests?.length) icons.push(`📨${s.requests.length}`);
+      const text = sim!.phase === 'matka' ? icons.join('') : sim!.manned(st.id) ? '' : '🤖';
+      if (b.status.text !== text) b.status.setText(text);
+      // A broken console blinks
+      const broken = icons.includes('💥') && sim!.phase === 'matka';
+      b.box.setAlpha(broken && Math.sin(this.time.now / 150) > 0 ? 0.55 : sim!.manned(st.id) ? 1 : 0.7);
+    });
+  }
+
+  /** One station helped another: the icon flies from one crew block to the other. */
+  private helped(from: string, to: number, icon: string) {
+    const a = this.crewBlocks[stationIndex(from)];
+    const b = this.crewBlocks[to];
+    if (!a || !b || a === b) return;
+    const flyer = this.add.text(a.x, a.y, icon, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(FRAME + 5);
+    // It curves out over the viewscreen so everyone sees it
+    const bulge = { t: 0 };
+    this.tweens.add({
+      targets: bulge, t: 1, duration: 900, ease: 'Sine.inOut',
+      onUpdate: () => {
+        const t = bulge.t;
+        flyer.setPosition(a.x + (b.x - a.x) * t + Math.sin(t * Math.PI) * 160, a.y + (b.y - a.y) * t);
+        flyer.setScale(1 + Math.sin(t * Math.PI) * 0.6);
+      },
+      onComplete: () => {
+        flyer.destroy();
+        this.tweens.add({ targets: b.box, x: 12, duration: 90, yoyo: true, repeat: 1 });
+      },
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -653,25 +722,20 @@ class Paanaytto extends Phaser.Scene {
     const g = fixed(this.add.graphics());
     // Top elbow + top bar
     g.fillStyle(LC[0]);
-    g.fillRoundedRect(0, 0, 130, 200, { tl: 50, tr: 0, bl: 0, br: 0 });
+    g.fillRoundedRect(0, 0, 130, 124, { tl: 50, tr: 0, bl: 0, br: 0 });
     g.fillRect(100, 0, 460, 46);
     g.fillRect(130, 46, 26, 26);
     g.fillStyle(0x000000);
     g.fillRoundedRect(130, 46, 60, 60, { tl: 26, tr: 0, bl: 0, br: 0 });
     // Bottom elbow + bottom bar
     g.fillStyle(LC[1]);
-    g.fillRoundedRect(0, 520, 130, 200, { tl: 0, tr: 0, bl: 50, br: 0 });
+    g.fillRoundedRect(0, 592, 130, 128, { tl: 0, tr: 0, bl: 50, br: 0 });
     g.fillRect(100, 674, 460, 46);
     g.fillRect(130, 648, 26, 26);
     g.fillStyle(0x000000);
     g.fillRoundedRect(130, 614, 60, 60, { tl: 0, tr: 0, bl: 26, br: 0 });
-    // Left column blocks with silly numbers
-    const blocks = [[210, 110, LC[2], '03-47'], [326, 70, LC[3], '12-B'], [402, 112, LC[4], '88-K']] as const;
-    for (const [y, h, c, n] of blocks) {
-      g.fillStyle(c);
-      g.fillRect(0, y, 130, h);
-      this.blockLabels.push(fixed(label(this, 120, y + h - 30, n, 20).setOrigin(1, 0)));
-    }
+    // Left column: the crew blocks (makeCrew)
+    this.makeCrew();
     // More pieces of the top and bottom bars
     const bars = [[570, 0, 230, LC[2]], [810, 0, 140, LC[5]], [960, 0, 320, LC[4]], [570, 674, 330, LC[3]], [910, 674, 370, LC[2]]] as const;
     for (const [x, y, w, c] of bars) {
@@ -753,10 +817,16 @@ class Paanaytto extends Phaser.Scene {
   private makeFinish() {
     this.finish = this.add.container(0, 0).setScrollFactor(0).setDepth(UI + 10).setVisible(false);
     this.finish.add(this.add.rectangle(VS.x, VS.y, VS.w, VS.h, 0x000000, 0.6).setOrigin(0));
-    this.finish.add(label(this, VS.x + VS.w / 2, VS.y + 150, 'Perillä! 🎉', 96, lcars[0]).setOrigin(0.5));
-    this.finishTime = label(this, VS.x + VS.w / 2, VS.y + 250, '', 36, '#ffffff').setOrigin(0.5);
+    this.finish.add(this.add.rectangle(VS.x, VS.y, VS.w, VS.h, 0x000000, 0.3).setOrigin(0));
+    this.finish.add(label(this, VS.x + VS.w / 2, VS.y + 60, 'Perillä! 🎉', 72, lcars[0]).setOrigin(0.5));
+    this.finishTime = label(this, VS.x + VS.w / 2, VS.y + 125, '', 28, '#ffffff').setOrigin(0.5);
     this.finish.add(this.finishTime);
-    const again = label(this, VS.x + VS.w / 2, VS.y + 500, '  Uusi matka  ', 36).setOrigin(0.5)
+    // Matkaraportti: one line per station
+    this.reportText = this.add.text(VS.x + 60, VS.y + 165, '', {
+      fontFamily: FONT, fontSize: '25px', color: '#ffffff', fontStyle: 'bold', lineSpacing: 10,
+    });
+    this.finish.add(this.reportText);
+    const again = label(this, VS.x + VS.w / 2, VS.y + 545, '  Uusi matka  ', 32).setOrigin(0.5)
       .setBackgroundColor(lcars[1]).setPadding(24, 10, 24, 10).setInteractive({ useHandCursor: true });
     again.on('pointerdown', () => sim?.newTrip());
     this.finish.add(again);
@@ -766,7 +836,13 @@ class Paanaytto extends Phaser.Scene {
     const s = sim!.ship;
     const minutes = Math.floor(s.time / 60);
     const seconds = String(Math.floor(s.time % 60)).padStart(2, '0');
-    this.finishTime.setText(`MATKA-AIKA ${minutes}:${seconds} · 💎 ${s.stars} KRISTALLIA · TÄHTIPÄIVÄ ${stardate(s.time)}`);
+    this.finishTime.setText(`MATKA-AIKA ${minutes}:${seconds} · 💎 ${s.stars} KRISTALLIA · 🤝 YHTEISTYÖ ${teamwork(s)}`);
+    // What every station did (🤖 = autopilot did it)
+    this.reportText.setText(config.stations.map((st) => {
+      const done = deedsOf(s, st.id) || '😎 piti tunnelmaa yllä';
+      return `${st.emoji} ${st.name.toUpperCase()}${sim!.manned(st.id) ? '' : ' 🤖'}:  ${done.toUpperCase()}`;
+    }).join('\n'));
+    this.reportText.setScale(Math.min(1, (VS.w - 120) / this.reportText.width, 360 / this.reportText.height));
     LC.forEach((c, i) => {
       const confetti = this.add.particles(VS.x + VS.w / 2, VS.y + 40, circleTexture(this, `konfetti-${i}`, 7, c), {
         speed: { min: 200, max: 600 }, angle: { min: 20, max: 160 }, gravityY: 500, lifespan: 3500, emitting: false,
