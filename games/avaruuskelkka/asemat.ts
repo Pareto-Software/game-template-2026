@@ -10,8 +10,8 @@ import { storage } from '@kit/storage';
 import { sfx } from '@kit/sound';
 import { config, type StationDef } from './config';
 import {
-  paths, crewByStation, towards, angleDiff, stardate,
-  type Phase, type PlayerInfo, type ShipState, type HelmInput,
+  paths, crewByStation, towards, angleDiff, stardate, hull,
+  type Phase, type PlayerInfo, type ShipState, type HelmInput, type Energy, type ThreatKind,
 } from './simulaatio';
 
 const app = document.createElement('div');
@@ -210,7 +210,84 @@ const waiting: StationView = {
   },
 };
 
-const views: Record<string, StationView> = { ohjaus: helm, kapteeni: captain };
+/** Taktiikka: tap a threat on the radar to zap it, shields up before a hit. */
+const tactical: StationView = (() => {
+  const emoji: Record<ThreatKind, string> = {
+    kivi: config.danger.rock.emoji, mohko: config.danger.pirate.emoji, piirakka: config.danger.pie.emoji,
+  };
+  /** The radar shows a bit more than the laser reaches (the dashed circle). */
+  const scale = 1 / (config.tactical.range * 1.4);
+  return {
+    html: () => `
+      <div class="radar" id="tutka"><div class="reach"></div><span class="me">${config.ship.emoji}</span></div>
+      <div class="hint" id="laser"></div>
+      <button class="big c2" id="kilvet" data-send="kilvet">🛡️ Kilvet ylös!</button>`,
+    live: (s) => {
+      const radar = $('tutka')!;
+      const seen = new Set<string>();
+      for (const t of s.radar ?? []) {
+        const id = String(t.id);
+        seen.add(id);
+        let dot = radar.querySelector<HTMLElement>(`[data-zap="${id}"]`);
+        if (!dot) {
+          dot = document.createElement('button');
+          dot.className = `dot ${t.k}`;
+          dot.dataset.zap = id;
+          dot.textContent = emoji[t.k];
+          radar.appendChild(dot);
+        }
+        dot.style.left = `${50 + t.dx * scale * 50}%`;
+        dot.style.top = `${50 + t.dy * scale * 50}%`;
+        dot.classList.toggle('far', Math.hypot(t.dx, t.dy) > config.tactical.range);
+      }
+      radar.querySelectorAll<HTMLElement>('[data-zap]').forEach((d) => { if (!seen.has(d.dataset.zap!)) d.remove(); });
+      $('laser')!.textContent = s.reload > 0 ? 'Laser latautuu… 🔋' : 'Kosketa kohdetta = PIU PIU! 🔴';
+      const shield = $('kilvet') as HTMLButtonElement;
+      shield.disabled = s.shield > 0 || s.shieldCharge > 0;
+      shield.textContent = s.shield > 0 ? `🛡️ Kilvet ylhäällä ${s.shield}` : s.shieldCharge > 0 ? `Kilvet latautuu… ${s.shieldCharge}` : '🛡️ Kilvet ylös!';
+    },
+  };
+})();
+
+/** Konehuone: share the energy, tap faults to fix them. */
+const engineering: StationView = (() => {
+  const systems: [keyof Energy, string][] = [['moottori', '🔥 Moottori'], ['kilvet', '🛡️ Kilvet'], ['aseet', '🔴 Aseet']];
+  let shownFaults = '';
+  return {
+    html: () => {
+      shownFaults = '';
+      return `
+      <div class="hint" id="runko"></div>
+      ${systems.map(([id, name], i) => `<div class="energy">
+        <span class="name">${name}</span>
+        <button class="c5" data-energy="${id}_miinus">−</button>
+        <span class="pips" id="pips-${id}">${'<i></i>'.repeat(config.energy.max)}</span>
+        <button class="c${i + 1}" data-energy="${id}_plus">+</button>
+      </div>`).join('')}
+      <div class="hint" id="vapaa"></div>
+      <div class="faults" id="viat"></div>`;
+    },
+    live: (s) => {
+      const used = s.energy.moottori + s.energy.kilvet + s.energy.aseet;
+      for (const [id] of systems) {
+        $(`pips-${id}`)!.querySelectorAll('i').forEach((pip, i) => pip.classList.toggle('full', i < s.energy[id]));
+      }
+      const free = config.energy.total - used;
+      $('vapaa')!.textContent = free > 0 ? `Vapaata energiaa: ${'⚡'.repeat(free)}` : 'Ei vapaata energiaa – ota ensin toisesta (−)';
+      $('runko')!.textContent = `Runko ${hull(s)} %`;
+      // Redraw the fault buttons only when they change, so taps aren't lost
+      const faults = s.faults ?? [];
+      const key = faults.map((f) => `${f.id}:${f.left}`).join(',');
+      if (key === shownFaults) return;
+      shownFaults = key;
+      $('viat')!.innerHTML = faults.length
+        ? faults.map((f) => `<button class="fault" data-fix="${f.id}">💥 ${config.faults.names[f.name]}<small>Napauta ${f.left}×</small></button>`).join('')
+        : '<div class="hint">Ei vikoja ✅ Kaikki kunnossa (melkein)</div>';
+    },
+  };
+})();
+
+const views: Record<string, StationView> = { ohjaus: helm, kapteeni: captain, taktiikka: tactical, konehuone: engineering };
 
 // ---------------------------------------------------------------------------
 // Drawing the phone screen
@@ -290,16 +367,24 @@ function setUpPage() {
   document.body.appendChild(app);
   app.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('button');
-    if (!b || b.dataset.hold) return;
+    if (!b || b.dataset.hold || b.dataset.zap || b.dataset.fix) return;
     sfx('click', { pitch: 1 + Math.random() }); // every console beeps a bit differently
     if (b.dataset.pick) pick(b.dataset.pick);
     if (b.dataset.send) send(b.dataset.send);
     if (b.dataset.throttle) helm.setThrottle(Number(b.dataset.throttle));
+    if (b.dataset.energy) send('energia', b.dataset.energy);
     if (b.dataset.go === 'vaihda') standUp();
     if (b.dataset.go === 'liity') location.search = '?liity';
   });
   // Buttons that work while held down (steering)
   const holdButton = (e: PointerEvent) => (e.target as HTMLElement).closest<HTMLElement>('[data-hold]');
+  // Radar targets and faults move and change all the time: react on touch, not on click
+  app.addEventListener('pointerdown', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-zap], [data-fix]');
+    if (!b) return;
+    if (b.dataset.zap) { send('ammu', Number(b.dataset.zap)); sfx('shoot'); }
+    if (b.dataset.fix) { send('korjaa', Number(b.dataset.fix)); sfx('hit', { pitch: 2 }); b.classList.add('on'); }
+  });
   app.addEventListener('pointerdown', (e) => {
     const b = holdButton(e);
     if (!b || !now.me) return;
@@ -366,6 +451,24 @@ const CSS = `
   .route .done { background: #1f4d1a; text-decoration: line-through; opacity: 0.7; }
   .route .next { background: ${config.lcars[0]}; color: #000; font-weight: bold; }
   .silly { text-align: center; font-size: 22px; padding: 24px 8px; color: ${config.lcars[1]}; min-height: 60px; }
+  .radar { position: relative; width: 100%; aspect-ratio: 1; border-radius: 50%; border: 3px solid ${config.lcars[2]};
+    background: radial-gradient(circle, #102040 0%, #000 70%); overflow: hidden; }
+  .radar .reach { position: absolute; inset: 14.3%; border-radius: 50%; border: 2px dashed ${config.lcars[0]}; opacity: 0.6; }
+  .radar .me { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 30px; }
+  .radar .dot { position: absolute; transform: translate(-50%, -50%); background: none; font-size: 40px; padding: 8px;
+    transition: left 0.2s linear, top 0.2s linear; }
+  .radar .dot.mohko { font-size: 54px; }
+  .radar .dot.far { opacity: 0.4; }
+  .hint { text-align: center; font-size: 18px; color: ${config.lcars[4]}; text-transform: uppercase; }
+  .energy { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .energy .name { width: 100%; font-size: 18px; text-transform: uppercase; }
+  .energy button { width: 52px; height: 52px; padding: 0; font-size: 28px; }
+  .pips { flex: 1; display: flex; gap: 4px; }
+  .pips i { flex: 1; height: 26px; border-radius: 6px; background: #222; }
+  .pips i.full { background: ${config.lcars[0]}; }
+  .faults { display: flex; flex-direction: column; gap: 8px; }
+  .fault { background: #ff5c5c; text-align: left; border-radius: 16px; animation: wobble 0.4s infinite alternate; }
+  @keyframes wobble { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }
   .code { text-align: center; font-size: 56px; letter-spacing: 16px; color: ${config.lcars[0]}; }
   .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .pad button { background: ${config.lcars[1]}; font-size: 34px; padding: 18px 0; }

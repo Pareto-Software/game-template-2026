@@ -9,7 +9,7 @@ import { online } from '@kit/firebase';
 import { storage } from '@kit/storage';
 import { sfx } from '@kit/sound';
 import { config } from './config';
-import { Simulaatio, crewByStation, stardate, towards, type Phase, type PlayerInfo } from './simulaatio';
+import { Simulaatio, crewByStation, stardate, towards, hull, type Phase, type PlayerInfo, type Threat, type ThreatKind } from './simulaatio';
 
 const W = 1280;
 const H = 720;
@@ -19,6 +19,12 @@ const FONT = '"Arial Narrow", "Roboto Condensed", "Helvetica Neue", system-ui, s
 const color = (hex: string) => parseInt(hex.replace('#', ''), 16);
 const LC = config.lcars.map(color); // console colours as numbers
 const FRAME = 900; // depth of the console frame
+/** How far the viewscreen zooms out, so the crew sees the danger coming (1 = no zoom). */
+const ZOOM = 0.62;
+/** The stars cover the whole viewscreen even though space is zoomed out. */
+const STARS = {
+  x: W / 2 - (W / 2 - VS.x) / ZOOM, y: H / 2 - (H / 2 - VS.y) / ZOOM, w: VS.w / ZOOM, h: VS.h / ZOOM,
+};
 const UI = 800; // depth of things drawn on top of the viewscreen
 
 let sim: Simulaatio | null = null;
@@ -69,22 +75,37 @@ class Paanaytto extends Phaser.Scene {
   private finish!: Phaser.GameObjects.Container;
   private finishTime!: Phaser.GameObjects.Text;
   private lastBanner: Phaser.GameObjects.Text | null = null;
+  private statusText!: Phaser.GameObjects.Text;
+  private threatSprites = new Map<number, Phaser.GameObjects.Image>();
+  private pirateLabel!: Phaser.GameObjects.Text;
+  private shieldBubble!: Phaser.GameObjects.Arc;
+  private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private laser!: Phaser.GameObjects.Graphics;
+  private uiCam!: Phaser.Cameras.Scene2D.Camera;
 
   constructor(private code: string) {
     super('Paanaytto');
   }
 
   create() {
+    this.makeCameras();
     sim = new Simulaatio(this.code, {
       phase: (phase) => this.showPhase(phase),
       players: (players) => this.showCrew(players),
       arrived: (i) => this.arrivedAt(i),
       bonk: () => this.bonk(),
       warp: () => this.warpFlash(),
+      zap: (t) => this.zap(t),
+      pop: (t) => this.pop(t),
+      hit: (kind, blocked) => this.hit(kind, blocked),
+      shields: () => { sfx('powerup', { pitch: 0.7 }); this.banner('KILVET YLÖS!', config.lcars[2]); },
+      fixed: () => sfx('coin', { pitch: 1.5 }),
+      pirate: (arrived) => this.pirateNews(arrived),
     });
     this.makeStars();
     this.makeSpace();
     this.makeShip();
+    this.makeDangerFx();
     this.makeOverlay();
     this.makeFrame();
     this.makeLobby();
@@ -101,9 +122,31 @@ class Paanaytto extends Phaser.Scene {
     this.drawStars(dt);
     this.drawArrow();
     this.drawMiniMap();
+    this.drawThreats();
+    this.drawShipFx();
     const t = config.route[s.target];
     this.targetText.setText(`KOHDE: ${t.name.toUpperCase()} ${t.emoji}   ${Math.round(towards(s, t.x, t.y).distance)} KM`);
     this.dateText.setText(`TÄHTIPÄIVÄ ${stardate(s.time)}`);
+    const faults = s.faults?.length ?? 0;
+    const shields = s.shield > 0 ? 'KILVET YLHÄÄLLÄ 🛡️' : s.shieldCharge > 0 ? 'KILVET LATAUTUU' : 'KILVET VALMIINA';
+    this.statusText.setText(`RUNKO ${hull(s)}%   ${faults ? '💥'.repeat(faults) + ' VIKOJA ' + faults : 'EI VIKOJA'}   ${shields}`);
+    this.statusText.setColor(faults >= 3 ? '#ff5c5c' : config.lcars[2]);
+  }
+
+  /** Two cameras: the main one shows space (zoomed out), the other the console frame and texts.
+   *  Things fixed on the screen (setScrollFactor(0)) go to the frame camera automatically. */
+  private makeCameras() {
+    this.cameras.main.setZoom(ZOOM);
+    this.uiCam = this.cameras.add(0, 0, W, H);
+    this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, (o: Phaser.GameObjects.GameObject) => {
+      queueMicrotask(() => {
+        if (!o.scene) return; // already gone
+        let root = o as Phaser.GameObjects.GameObject & { scrollFactorX?: number };
+        while (root.parentContainer) root = root.parentContainer;
+        const onScreen = root.scrollFactorX === 0 && root.name !== 'space';
+        (onScreen ? this.cameras.main : this.uiCam).ignore(o);
+      });
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -113,9 +156,9 @@ class Paanaytto extends Phaser.Scene {
   /** Stars that rush past the viewscreen (long streaks at warp). */
   private makeStars() {
     for (let i = 0; i < 170; i++) {
-      this.stars.push({ x: VS.x + Math.random() * VS.w, y: VS.y + Math.random() * VS.h, z: 0.15 + Math.random() * 0.85 });
+      this.stars.push({ x: STARS.x + Math.random() * STARS.w, y: STARS.y + Math.random() * STARS.h, z: 0.15 + Math.random() * 0.85 });
     }
-    this.starGfx = this.add.graphics().setScrollFactor(0).setDepth(-10);
+    this.starGfx = this.add.graphics().setScrollFactor(0).setDepth(-10).setName('space');
   }
 
   private drawStars(dt: number) {
@@ -128,11 +171,11 @@ class Paanaytto extends Phaser.Scene {
     for (const st of this.stars) {
       st.x -= vx * st.z * dt * 0.5;
       st.y -= vy * st.z * dt * 0.5;
-      if (st.x < VS.x) st.x += VS.w;
-      if (st.x > VS.x + VS.w) st.x -= VS.w;
-      if (st.y < VS.y) st.y += VS.h;
-      if (st.y > VS.y + VS.h) st.y -= VS.h;
-      g.lineStyle(st.z * 2.5, 0xffffff, 0.4 + st.z * 0.6);
+      if (st.x < STARS.x) st.x += STARS.w;
+      if (st.x > STARS.x + STARS.w) st.x -= STARS.w;
+      if (st.y < STARS.y) st.y += STARS.h;
+      if (st.y > STARS.y + STARS.h) st.y -= STARS.h;
+      g.lineStyle((st.z * 2.5) / ZOOM, 0xffffff, 0.4 + st.z * 0.6);
       g.lineBetween(st.x, st.y, st.x + vx * st.z * streak + 0.5, st.y + vy * st.z * streak + 0.5);
     }
   }
@@ -160,7 +203,7 @@ class Paanaytto extends Phaser.Scene {
     config.route.forEach((w, i) => {
       const planet = this.add.image(w.x, w.y, emojiTexture(this, `paikka-${i}`, w.emoji, 200)).setDepth(-3);
       this.tweens.add({ targets: planet, angle: 8, duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      label(this, w.x, w.y + 130, w.name, 30, config.lcars[0]).setOrigin(0.5).setDepth(-3);
+      label(this, w.x, w.y + 140, w.name, 44, config.lcars[0]).setOrigin(0.5).setDepth(-3);
     });
     // The wobbly pink edge of space
     g.lineStyle(14, 0xff5ca8, 0.5);
@@ -170,9 +213,9 @@ class Paanaytto extends Phaser.Scene {
   private makeShip() {
     const s = sim!.ship;
     this.ship = this.add.image(s.x, s.y, emojiTexture(this, 'laiva', config.ship.emoji, 128)).setDisplaySize(config.ship.size, config.ship.size);
-    this.arrow = this.add.triangle(0, 0, 0, -16, 34, 0, 0, 16, LC[0]).setDepth(5);
+    this.arrow = this.add.triangle(0, 0, 0, -24, 50, 0, 0, 24, LC[0]).setDepth(5);
     // The ship sits in the middle of the viewscreen, not the middle of the whole picture
-    this.cameras.main.startFollow(this.ship, false, 0.15, 0.15, -(VS.x + VS.w / 2 - W / 2), -(VS.y + VS.h / 2 - H / 2));
+    this.cameras.main.startFollow(this.ship, false, 0.15, 0.15, -(VS.x + VS.w / 2 - W / 2) / ZOOM, -(VS.y + VS.h / 2 - H / 2) / ZOOM);
   }
 
   /** An orange arrow next to the ship points to where we are going. */
@@ -181,8 +224,117 @@ class Paanaytto extends Phaser.Scene {
     const t = config.route[s.target];
     const dir = towards(s, t.x, t.y);
     const rad = (dir.angle * Math.PI) / 180;
-    this.arrow.setPosition(s.x + Math.cos(rad) * 110, s.y + Math.sin(rad) * 110).setAngle(dir.angle);
+    this.arrow.setPosition(s.x + Math.cos(rad) * 140, s.y + Math.sin(rad) * 140).setAngle(dir.angle);
     this.arrow.setVisible(sim!.phase === 'matka' && dir.distance > 400);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Vaarat: rocks, pirates, pies, lasers, shields, sparks
+  // ---------------------------------------------------------------------------
+
+  private makeDangerFx() {
+    const d = config.danger;
+    emojiTexture(this, 'kivi', d.rock.emoji, 96);
+    emojiTexture(this, 'mohko', d.pirate.emoji, 128);
+    emojiTexture(this, 'piirakka', d.pie.emoji, 64);
+    this.pirateLabel = label(this, 0, 0, d.pirate.name, 36, '#7cff6b').setOrigin(0.5).setVisible(false).setDepth(6);
+    this.shieldBubble = this.add.circle(0, 0, config.ship.size * 0.8, LC[2], 0.18).setStrokeStyle(5, LC[6]).setDepth(4).setVisible(false);
+    this.laser = this.add.graphics().setDepth(6);
+    // Sparks fly from the ship while something is broken
+    this.sparks = this.add.particles(0, 0, circleTexture(this, 'kipina', 5, 0xffcc00), {
+      speed: { min: 80, max: 220 }, lifespan: 500, scale: { start: 1, end: 0 }, frequency: 200, emitting: false,
+    }).setDepth(5);
+    this.sparks.startFollow(this.ship);
+  }
+
+  /** Keeps a picture for every threat in the simulation, in the right place. */
+  private drawThreats() {
+    const live = new Set<number>();
+    const sizes: Record<ThreatKind, number> = {
+      kivi: config.danger.rock.size, mohko: config.danger.pirate.size, piirakka: config.danger.pie.size,
+    };
+    let pirate: Threat | null = null;
+    for (const t of sim!.threats) {
+      live.add(t.id);
+      let img = this.threatSprites.get(t.id);
+      if (!img) {
+        img = this.add.image(t.x, t.y, t.kind).setDisplaySize(sizes[t.kind], sizes[t.kind]).setDepth(3);
+        this.threatSprites.set(t.id, img);
+      }
+      img.setPosition(t.x, t.y);
+      if (t.kind === 'kivi') img.angle += 1;
+      if (t.kind === 'piirakka') img.angle += 6;
+      if (t.kind === 'mohko') { pirate = t; img.setAngle(Math.sin(t.age * 3) * 15); }
+    }
+    for (const [id, img] of this.threatSprites) {
+      if (!live.has(id)) { img.destroy(); this.threatSprites.delete(id); }
+    }
+    this.pirateLabel.setVisible(!!pirate);
+    if (pirate) this.pirateLabel.setPosition(pirate.x, pirate.y - 100).setText(`${config.danger.pirate.name} ${'❤️'.repeat(pirate.hp)}`);
+  }
+
+  private drawShipFx() {
+    const s = sim!.ship;
+    this.shieldBubble.setPosition(s.x, s.y).setVisible(s.shield > 0).setAlpha(0.6 + Math.sin(this.time.now / 80) * 0.3);
+    const faults = s.faults?.length ?? 0;
+    this.sparks.emitting = faults > 0 && sim!.phase === 'matka';
+    this.sparks.frequency = Math.max(40, 300 - faults * 50);
+  }
+
+  /** PIU PIU: a laser line from the ship to the target. */
+  private zap(t: Threat) {
+    sfx('shoot');
+    const s = sim!.ship;
+    const g = this.laser.clear().setAlpha(1);
+    g.lineStyle(12, 0xff3355, 1).lineBetween(s.x, s.y, t.x, t.y);
+    g.lineStyle(4, 0xffffff, 1).lineBetween(s.x, s.y, t.x, t.y);
+    this.tweens.add({ targets: g, alpha: 0, duration: 250 });
+    const img = this.threatSprites.get(t.id);
+    if (img) this.tweens.add({ targets: img, alpha: 0.3, duration: 80, yoyo: true });
+  }
+
+  /** POKS! A zapped threat bursts into sparkles. */
+  private pop(t: Threat) {
+    sfx(t.kind === 'mohko' ? 'win' : 'bounce');
+    LC.slice(0, 4).forEach((c, i) => {
+      const bits = this.add.particles(t.x, t.y, circleTexture(this, `konfetti-${i}`, 7, c), {
+        speed: { min: 100, max: 350 }, lifespan: 700, scale: { start: 1, end: 0 }, emitting: false,
+      }).setDepth(6);
+      bits.explode(t.kind === 'mohko' ? 30 : 10);
+      this.time.delayedCall(900, () => bits.destroy());
+    });
+    const word = label(this, t.x, t.y, t.kind === 'mohko' ? 'MÖHKÖTTÄJÄ KARKASI!' : 'POKS!', t.kind === 'mohko' ? 60 : 50, '#ffffff').setOrigin(0.5).setDepth(7);
+    this.tweens.add({ targets: word, y: t.y - 80, alpha: 0, duration: 900, onComplete: () => word.destroy() });
+  }
+
+  /** Something hit the ship: shake, or TÖKS if the shields held. */
+  private hit(kind: ThreatKind, blocked: boolean) {
+    if (blocked) {
+      sfx('bounce', { pitch: 0.6 });
+      this.banner('TÖKS! KILVET PITIVÄT!', config.lcars[6]);
+      return;
+    }
+    sfx('hit');
+    this.cameras.main.shake(300, 0.012);
+    if (kind === 'piirakka') {
+      this.banner('PLÖRTS! 🥧', '#ffcc99');
+      this.splat();
+    } else {
+      this.banner('KOLINAA! JOTAIN HAJOSI!', '#ff5c5c');
+    }
+  }
+
+  /** A pie sticks to the viewscreen and slowly slides down. */
+  private splat() {
+    const x = VS.x + 150 + Math.random() * (VS.w - 300);
+    const y = VS.y + 100 + Math.random() * (VS.h - 250);
+    const pie = this.add.image(x, y, 'piirakka').setDisplaySize(260, 260).setScrollFactor(0).setDepth(UI - 1).setAngle(Math.random() * 360);
+    this.tweens.add({ targets: pie, y: y + 120, alpha: 0, duration: 3500, ease: 'Quad.in', onComplete: () => pie.destroy() });
+  }
+
+  private pirateNews(arrived: boolean) {
+    if (arrived) { sfx('roar'); this.banner(`${config.danger.pirate.name} hyökkää! ${config.danger.pirate.emoji}`, '#7cff6b'); }
+    else this.banner(`${config.danger.pirate.name} kyllästyi ja lähti`, '#7cff6b');
   }
 
   // ---------------------------------------------------------------------------
@@ -191,6 +343,7 @@ class Paanaytto extends Phaser.Scene {
 
   private makeOverlay() {
     this.targetText = label(this, VS.x + 60, VS.y + 14, '', 26, config.lcars[0]).setScrollFactor(0).setDepth(UI);
+    this.statusText = label(this, VS.x + 60, VS.y + 46, '', 22, config.lcars[2]).setScrollFactor(0).setDepth(UI);
     this.add.rectangle(VS.x + VS.w - 270, VS.y + VS.h - 140, 260, 130, 0x000000, 0.6)
       .setOrigin(0).setScrollFactor(0).setDepth(UI).setStrokeStyle(3, LC[2]);
     this.miniMap = this.add.graphics().setScrollFactor(0).setDepth(UI);
@@ -385,6 +538,7 @@ class Paanaytto extends Phaser.Scene {
     this.lobby.setVisible(phase === 'aula');
     this.finish.setVisible(phase === 'perilla');
     this.targetText.setVisible(phase === 'matka');
+    this.statusText.setVisible(phase === 'matka');
     if (phase === 'matka') { sfx('jump'); this.banner('Tehkää niin!'); }
     if (phase === 'perilla') this.party();
   }

@@ -9,7 +9,7 @@ flies the ship from the home base to a far-away destination planet. The game
 Made for the "Lapsi töihin" day: kids (8–13) change it by telling Claude their
 ideas, so almost everything they'd want to change lives in `config.ts`.
 
-Status: **phase 2 done** (first flight, console look) – next: phase 3 (danger). Open decisions are marked **❓**.
+Status: **phase 3 done** (danger: rocks, pirates, lasers, shields, energy, faults) – next: phase 4 (discovery). Open decisions are marked **❓**.
 
 ---
 
@@ -176,7 +176,7 @@ Also `?liity` = number-button pad for typing the room code without the QR code.
 0. ✅ **Foundation**: Firebase project, rules, `kit/firebase.ts`, `package.json`, CLAUDE.md exception.
 1. ✅ **Lobby**: room create/join, QR code, station picking, presence, `?testi` debug view.
 2. ✅ **First flight** ⭐ first playable: simulation loop, main-screen map, Helm steers to destination, arrival screen. Other stations on autopilot.
-3. **Danger**: Tactical + Engineering + hull/energy; asteroid & pirate events.
+3. ✅ **Danger**: Tactical + Engineering + hull/energy; asteroid & pirate events.
 4. **Discovery**: Science (hidden things) + Captain (route choices, red alert).
 5. **People**: Comms (emoji aliens) + Ops (alerts, tractor beam) + Counselor (morale).
 6. **Polish**: sounds (`@kit/sound`), particles, autopilot tuning, Wake Lock on phones, rejoin after reload.

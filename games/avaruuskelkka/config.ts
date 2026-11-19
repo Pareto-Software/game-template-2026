@@ -21,6 +21,10 @@ export interface Waypoint {
   /** Place on the space map. The first one is where the trip starts, the last one is the goal. */
   x: number;
   y: number;
+  /** Lots of rocks fly around near this place. */
+  rocks?: boolean;
+  /** A Möhköttäjä pirate attacks on the way to this place. */
+  pirate?: boolean;
 }
 
 export const config = {
@@ -29,7 +33,7 @@ export const config = {
   theme: 'avaruus' as ThemeName,
 
   /** Laiva – the crew's spaceship. */
-  ship: { name: 'USS Avaruuskelkka', emoji: '🚀', size: 110 },
+  ship: { name: 'USS Avaruuskelkka', emoji: '🚀', size: 150 },
 
   /** Konsolien värit – the bridge's console colours (rounded orange/lilac/blue panels). */
   lcars: ['#ff9900', '#cc99cc', '#9999ff', '#ff9966', '#ffcc99', '#cc6666', '#99ccff'],
@@ -56,10 +60,10 @@ export const config = {
   /** Reitti – the trip from home to the goal planet. */
   route: [
     { name: 'Kotitelakka', emoji: '🛰️', x: 0, y: 0 },
-    { name: 'Juustosumu', emoji: '🧀', x: 3200, y: -1300 },
-    { name: 'Kivikaista', emoji: '🪨', x: 6400, y: 500 },
+    { name: 'Juustosumu', emoji: '🧀', x: 3200, y: -1300, pirate: true },
+    { name: 'Kivikaista', emoji: '🪨', x: 6400, y: 500, rocks: true },
     { name: 'Pörröpäiden asema', emoji: '👾', x: 9200, y: -1500 },
-    { name: 'Avaruusvalaan laulupaikka', emoji: '🐋', x: 12000, y: 300 },
+    { name: 'Avaruusvalaan laulupaikka', emoji: '🐋', x: 12000, y: 300, pirate: true },
     { name: 'Planeetta Kotikolo', emoji: '🪐', x: 15000, y: -700 },
   ] as Waypoint[],
   /** How close the ship must fly to a place to "arrive" there. */
@@ -77,10 +81,57 @@ export const config = {
     warpCharge: 20,
   },
 
+  /** Vaarat – things that fly at the ship. Sizes in pixels, speeds in pixels per second. */
+  danger: {
+    /** Kivet: a new rock every this many seconds (fieldEvery near a place with rocks: true). */
+    rock: { emoji: '🪨', every: 7, fieldEvery: 1.4, speed: 80, size: 95 },
+    /** Möhköttäjä: a silly space pirate that circles the ship and throws pies. */
+    pirate: { name: 'Möhköttäjä', emoji: '🛸', hp: 3, throwsEvery: 3, leavesAfter: 45, size: 140 },
+    /** Avaruuspiirakka: what the pirate throws. PLÖRTS! */
+    pie: { emoji: '🥧', speed: 280, size: 70 },
+  },
+
+  /** Taktiikka – lasers and shields. */
+  tactical: {
+    /** How far the laser reaches (the circle on the radar). */
+    range: 700,
+    /** Seconds between laser shots: reload − reloadPerPoint × weapon energy. */
+    reload: 1.6,
+    reloadPerPoint: 0.3,
+    /** Seconds the shields stay up: shieldSeconds + shieldPerPoint × shield energy. */
+    shieldSeconds: 2,
+    shieldPerPoint: 1.5,
+    /** Seconds the shields need to charge before they can go up again. */
+    shieldCharge: 6,
+  },
+
+  /** Konehuone – energy and repairs. */
+  energy: {
+    /** Energy points to share between moottori, kilvet and aseet. */
+    total: 6,
+    /** Most points one system can have. */
+    max: 4,
+    start: { moottori: 2, kilvet: 2, aseet: 2 },
+    /** Each engine point above 2 adds this much speed (0.15 = 15 %). */
+    enginePerPoint: 0.15,
+  },
+  /** Viat – every hit without shields breaks something. Each one slows the ship a bit. */
+  faults: {
+    tapsToFix: 3,
+    /** Speed lost per fault (0.1 = 10 %). */
+    slowEach: 0.1,
+    max: 6,
+    names: ['💨 Moottori pörisee', '☕ Kahvinkeitin', '🚽 Vessa tulvii', '💡 Valot vilkkuu', '🌀 Tuuletin', '🧦 Sukka putkessa'],
+  },
+
   /** Autopilotti – stations nobody picked do their job slowly. */
   autopilot: {
     /** Throttle button the autopilot uses (0–3). */
     helmThrottle: 2,
+    /** Taktiikka's autopilot zaps the nearest thing every this many seconds. */
+    zapEvery: 2.5,
+    /** Konehuone's autopilot fixes one fault every this many seconds. */
+    fixEvery: 10,
   },
 
   /** Tähtipäivä – the bridge's silly date, grows during the trip. */

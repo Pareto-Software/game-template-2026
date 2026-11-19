@@ -31,6 +31,15 @@ Everything in this game lives in these files; don't create new files.
 | Faster / slower ship, sharper turns | `config.helm.speeds`, `.turnSpeed` |
 | Longer / shorter warp | `config.helm.warpSpeed`, `.warpSeconds`, `.warpCharge` |
 | Autopilot flies faster | `config.autopilot.helmThrottle` (0–3) |
+| More / fewer rocks, bigger rocks | `config.danger.rock` (`every`, `fieldEvery`, `speed`, `size`, `emoji`) |
+| Rock field somewhere | `rocks: true` on a place in `config.route` |
+| Pirate on the way to a place | `pirate: true` on that place; looks and toughness: `config.danger.pirate` |
+| Pirate throws something else | `config.danger.pie.emoji` |
+| Lasers reach further / shoot faster | `config.tactical.range`, `.reload`, `.reloadPerPoint` |
+| Longer shields | `config.tactical.shieldSeconds`, `.shieldPerPoint`, `.shieldCharge` |
+| More energy points | `config.energy.total`, `.max`, `.start` |
+| Funny fault names, easier repairs | `config.faults.names`, `.tapsToFix` |
+| Autopilot zaps / repairs faster | `config.autopilot.zapEvery`, `.fixEvery` |
 | Funny console messages | `config.sillyLines` |
 | Console colours (orange, lilac …) | `config.lcars` |
 | Stardate | `config.stardate` |
@@ -48,6 +57,11 @@ Everything in this game lives in these files; don't create new files.
   (`rooms/<code>/commands`), decides what happens and writes `phase` and `state` (`ShipState`, 5×/s).
 - Phone views live in `views` in `asemat.ts`: `html()` once, `live(ship)` on every state,
   `hold(name, down)` for hold-down buttons (`data-hold`). Stations without a view show `waiting`.
+- Danger: `spawnDangers` / `moveDangers` / `movePirate` / `hitShip` in `simulaatio.ts`;
+  Taktiikka → `zap` + `raiseShields`, Konehuone → `moveEnergy` + `repair`, empty stations → `autopilots`.
+  The main screen draws them in `drawThreats`, `zap`, `pop`, `hit`, `splat` (`paanaytto.ts`).
+- The main screen has two cameras: space is zoomed out (`ZOOM`), the console frame is not.
+  Anything with `setScrollFactor(0)` goes to the frame camera automatically.
 - Helm sends held values to `inputs/ohjaus` (`turn`, `throttle`); `steer()` in `simulaatio.ts` reads them,
   or flies on autopilot when nobody is at Ohjaus.
 - Phones only **send** (`send('aloita')`) and **show**. They never decide game rules.
