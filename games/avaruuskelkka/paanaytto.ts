@@ -17,7 +17,9 @@ const H = 720;
 const VS = { x: 150, y: 70, w: 1110, h: 590 };
 const FONT = '"Arial Narrow", "Roboto Condensed", "Helvetica Neue", system-ui, sans-serif';
 const color = (hex: string) => parseInt(hex.replace('#', ''), 16);
-const LC = config.lcars.map(color); // console colours as numbers
+/** Console colours: always 7, repeating config.lcars if the kids put in fewer. */
+const lcars = Array.from({ length: 7 }, (_, i) => config.lcars[i % config.lcars.length]);
+const LC = lcars.map(color); // the same as numbers
 const FRAME = 900; // depth of the console frame
 /** How far the viewscreen zooms out, so the crew sees the danger coming (1 = no zoom). */
 const ZOOM = 0.62;
@@ -110,20 +112,20 @@ class Paanaytto extends Phaser.Scene {
       zap: (t) => this.zap(t),
       pop: (t) => this.pop(t),
       hit: (kind, blocked) => this.hit(kind, blocked),
-      shields: () => { sfx('powerup', { pitch: 0.7 }); this.banner('KILVET YLÖS!', config.lcars[2]); },
+      shields: () => { sfx('powerup', { pitch: 0.7 }); this.banner('KILVET YLÖS!', lcars[2]); },
       fixed: () => sfx('coin', { pitch: 1.5 }),
       pirate: (arrived) => this.pirateNews(arrived),
       scan: (found) => this.scanPulse(found),
       wormhole: (i) => this.wormhole(i),
       crystal: (i) => this.crystal(i),
       alert: () => { this.banner('PUNAINEN HÄLYTYS!', '#ff3333'); this.cameras.main.shake(300, 0.01); },
-      choose: () => { sfx('click'); this.banner('Kapteeni, valitse reitti!', config.lcars[1]); },
-      chosen: (w) => { sfx('coin'); this.banner(`Kurssi: ${w.name} ${w.emoji}`, config.lcars[0]); },
+      choose: () => { sfx('click'); this.banner('Kapteeni, valitse reitti!', lcars[1]); },
+      chosen: (w) => { sfx('coin'); this.banner(`Kurssi: ${w.name} ${w.emoji}`, lcars[0]); },
       call: () => this.alienCalls(),
       answered: (right) => this.alienAnswered(right),
       cat: (i) => this.catNews(i),
       tractor: (i) => this.tractor(i),
-      song: () => { sfx('roar', { pitch: 0.5 }); this.banner('Avaruusvalas laulaa… zZz 🐋', config.lcars[2]); },
+      song: () => { sfx('roar', { pitch: 0.5 }); this.banner('Avaruusvalas laulaa… zZz 🐋', lcars[2]); },
     });
     this.makeStars();
     this.makeSpace();
@@ -160,7 +162,7 @@ class Paanaytto extends Phaser.Scene {
     const faults = s.faults?.length ?? 0;
     const shields = s.shield > 0 ? 'KILVET YLHÄÄLLÄ 🛡️' : s.shieldCharge > 0 ? 'KILVET LATAUTUU' : 'KILVET VALMIINA';
     this.statusText.setText(`RUNKO ${hull(s)}%   ${faults ? '💥'.repeat(faults) + ' VIKOJA ' + faults : 'EI VIKOJA'}   ${shields}   💎 ${s.stars}   ${moodFace(s.morale)} MIELIALA ${Math.round(s.morale)}%`);
-    this.statusText.setColor(faults >= 3 ? '#ff5c5c' : config.lcars[2]);
+    this.statusText.setColor(faults >= 3 ? '#ff5c5c' : lcars[2]);
   }
 
   /** Two cameras: the main one shows space (zoomed out), the other the console frame and texts.
@@ -238,7 +240,7 @@ class Paanaytto extends Phaser.Scene {
     const planet = (w: Waypoint, key: string) => {
       const img = this.add.image(w.x, w.y, emojiTexture(this, key, w.emoji, 200)).setDepth(-3);
       this.tweens.add({ targets: img, angle: 8, duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      label(this, w.x, w.y + 140, w.name, 44, config.lcars[0]).setOrigin(0.5).setDepth(-3);
+      label(this, w.x, w.y + 140, w.name, 44, lcars[0]).setOrigin(0.5).setDepth(-3);
     };
     config.route.forEach((w, i) => {
       planet(w, `paikka-${i}`);
@@ -350,7 +352,7 @@ class Paanaytto extends Phaser.Scene {
   private hit(kind: ThreatKind, blocked: boolean) {
     if (blocked) {
       sfx('bounce', { pitch: 0.6 });
-      this.banner('TÖKS! KILVET PITIVÄT!', config.lcars[6]);
+      this.banner('TÖKS! KILVET PITIVÄT!', lcars[6]);
       return;
     }
     sfx('hit');
@@ -410,9 +412,9 @@ class Paanaytto extends Phaser.Scene {
       const look = config.secretLooks[config.secrets[i].kind];
       const img = this.secretSprites[i].setAlpha(0);
       this.tweens.add({ targets: img, alpha: 1, duration: 800, delay: 400 });
-      this.time.delayedCall(500, () => this.banner(`Löytyi: ${look.name} ${look.emoji}`, config.lcars[6]));
+      this.time.delayedCall(500, () => this.banner(`Löytyi: ${look.name} ${look.emoji}`, lcars[6]));
     }
-    if (!found.length && sim!.ship.fogClear > 0) this.banner('Sumu hälvenee!', config.lcars[6]);
+    if (!found.length && sim!.ship.fogClear > 0) this.banner('Sumu hälvenee!', lcars[6]);
   }
 
   private wormhole(i: number) {
@@ -550,8 +552,8 @@ class Paanaytto extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private makeOverlay() {
-    this.targetText = label(this, VS.x + 60, VS.y + 14, '', 26, config.lcars[0]).setScrollFactor(0).setDepth(UI);
-    this.statusText = label(this, VS.x + 60, VS.y + 46, '', 22, config.lcars[2]).setScrollFactor(0).setDepth(UI);
+    this.targetText = label(this, VS.x + 60, VS.y + 14, '', 26, lcars[0]).setScrollFactor(0).setDepth(UI);
+    this.statusText = label(this, VS.x + 60, VS.y + 46, '', 22, lcars[2]).setScrollFactor(0).setDepth(UI);
     this.add.rectangle(VS.x + VS.w - 270, VS.y + VS.h - 140, 260, 130, 0x000000, 0.6)
       .setOrigin(0).setScrollFactor(0).setDepth(UI).setStrokeStyle(3, LC[2]);
     this.miniMap = this.add.graphics().setScrollFactor(0).setDepth(UI);
@@ -583,7 +585,7 @@ class Paanaytto extends Phaser.Scene {
   }
 
   /** A big message that flies in and fades away. */
-  private banner(text: string, fill = config.lcars[0]) {
+  private banner(text: string, fill = lcars[0]) {
     if (this.lastBanner) { this.tweens.killTweensOf(this.lastBanner); this.lastBanner.destroy(); } // one message at a time
     const t = label(this, VS.x + VS.w / 2, VS.y + 120, text, 56, fill).setOrigin(0.5).setScrollFactor(0).setDepth(UI).setScale(0.2);
     this.tweens.add({ targets: t, scale: 1, duration: 350, ease: 'Back.out' });
@@ -606,7 +608,7 @@ class Paanaytto extends Phaser.Scene {
   private warpFlash() {
     sfx('powerup');
     this.cameras.main.flash(300, 200, 220, 255);
-    this.banner('WARP-NOPEUS!', config.lcars[2]);
+    this.banner('WARP-NOPEUS!', lcars[2]);
   }
 
   /** A busy bridge: consoles beep quietly and the numbers on the frame keep changing. */
@@ -674,7 +676,7 @@ class Paanaytto extends Phaser.Scene {
   private makeLobby() {
     this.lobby = this.add.container(0, 0).setScrollFactor(0).setDepth(UI + 10);
     this.lobby.add(this.add.rectangle(VS.x, VS.y, VS.w, VS.h, 0x000000, 0.93).setOrigin(0));
-    this.lobby.add(label(this, VS.x + VS.w / 2, VS.y + 40, 'Miehistö ilmoittautuu sillalle!', 44, config.lcars[0]).setOrigin(0.5));
+    this.lobby.add(label(this, VS.x + VS.w / 2, VS.y + 40, 'Miehistö ilmoittautuu sillalle!', 44, lcars[0]).setOrigin(0.5));
 
     // QR code + room code on the left
     const canvas = document.createElement('canvas');
@@ -683,27 +685,30 @@ class Paanaytto extends Phaser.Scene {
       this.lobby.add(this.add.image(VS.x + 175, VS.y + 270, 'qr'));
     });
     this.lobby.add(label(this, VS.x + 175, VS.y + 440, 'Skannaa puhelimella!', 28, '#ffffff').setOrigin(0.5));
-    this.lobby.add(label(this, VS.x + 175, VS.y + 485, `Huone ${this.code}`, 42, config.lcars[0]).setOrigin(0.5));
+    this.lobby.add(label(this, VS.x + 175, VS.y + 485, `Huone ${this.code}`, 42, lcars[0]).setOrigin(0.5));
 
-    // Station cards on the right: 2 columns × 4 rows of console pills
+    // Station cards on the right: 2 columns of console pills (smaller if there are more than 8 stations)
+    const rows = Math.ceil(config.stations.length / 2);
+    const step = Math.min(102, 410 / rows);
+    const h = step - 16;
     config.stations.forEach((s, i) => {
       const x = VS.x + 360 + (i % 2) * 370;
-      const y = VS.y + 95 + Math.floor(i / 2) * 102;
+      const y = VS.y + 95 + Math.floor(i / 2) * step;
       const c = LC[i % LC.length];
       const g = this.add.graphics();
       g.fillStyle(c);
-      g.fillRoundedRect(x, y, 70, 86, { tl: 43, tr: 0, bl: 43, br: 0 });
+      g.fillRoundedRect(x, y, 70, h, { tl: h / 2, tr: 0, bl: h / 2, br: 0 });
       g.fillRect(x + 76, y, 280, 10);
-      g.fillRect(x + 76, y + 76, 280, 10);
-      const icon = this.add.image(x + 40, y + 43, emojiTexture(this, `asema-${s.id}`, s.emoji, 64)).setDisplaySize(52, 52);
-      const name = label(this, x + 88, y + 16, s.name, 30, config.lcars[i % LC.length]);
-      const dots = this.add.container(x + 88, y + 60);
+      g.fillRect(x + 76, y + h - 10, 280, 10);
+      const icon = this.add.image(x + 40, y + h / 2, emojiTexture(this, `asema-${s.id}`, s.emoji, 64)).setDisplaySize(h * 0.6, h * 0.6);
+      const name = label(this, x + 88, y + h * 0.18, s.name, Math.min(30, h * 0.35), lcars[i % LC.length]);
+      const dots = this.add.container(x + 88, y + h * 0.7);
       this.crewDots[i] = dots;
       this.lobby.add([g, icon, name, dots]);
     });
 
     const start = label(this, VS.x + 720, VS.y + 530, '  Tehkää niin! 🚀  ', 38).setOrigin(0.5)
-      .setBackgroundColor(config.lcars[0]).setPadding(24, 10, 24, 10).setInteractive({ useHandCursor: true });
+      .setBackgroundColor(lcars[0]).setPadding(24, 10, 24, 10).setInteractive({ useHandCursor: true });
     start.on('pointerdown', () => sim?.start());
     this.lobby.add(start);
   }
@@ -731,11 +736,11 @@ class Paanaytto extends Phaser.Scene {
   private makeFinish() {
     this.finish = this.add.container(0, 0).setScrollFactor(0).setDepth(UI + 10).setVisible(false);
     this.finish.add(this.add.rectangle(VS.x, VS.y, VS.w, VS.h, 0x000000, 0.6).setOrigin(0));
-    this.finish.add(label(this, VS.x + VS.w / 2, VS.y + 150, 'Perillä! 🎉', 96, config.lcars[0]).setOrigin(0.5));
+    this.finish.add(label(this, VS.x + VS.w / 2, VS.y + 150, 'Perillä! 🎉', 96, lcars[0]).setOrigin(0.5));
     this.finishTime = label(this, VS.x + VS.w / 2, VS.y + 250, '', 36, '#ffffff').setOrigin(0.5);
     this.finish.add(this.finishTime);
     const again = label(this, VS.x + VS.w / 2, VS.y + 500, '  Uusi matka  ', 36).setOrigin(0.5)
-      .setBackgroundColor(config.lcars[1]).setPadding(24, 10, 24, 10).setInteractive({ useHandCursor: true });
+      .setBackgroundColor(lcars[1]).setPadding(24, 10, 24, 10).setInteractive({ useHandCursor: true });
     again.on('pointerdown', () => sim?.newTrip());
     this.finish.add(again);
   }

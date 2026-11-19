@@ -15,6 +15,8 @@ import {
 } from './simulaatio';
 
 const app = document.createElement('div');
+/** Console colours: always 7, repeating config.lcars if the kids put in fewer. */
+const lcars = Array.from({ length: 7 }, (_, i) => config.lcars[i % config.lcars.length]);
 
 /** Everything the phone knows right now. */
 const now = {
@@ -552,7 +554,7 @@ function showPicker() {
       ${config.stations.map((s, i) => {
         const full = crew[s.id].length >= config.playersPerStation;
         return `<button class="station" data-pick="${s.id}" ${full ? 'disabled' : ''}>
-          <span class="pill c${i % 7}">${s.emoji}</span>
+          <span class="pill c${i % 10}">${s.emoji}</span>
           <span><b>${s.name}</b><small>${s.job}</small></span>
           <span class="dots">${crew[s.id].map((p) => `<i style="background:${p.colour}"></i>`).join('')}</span>
         </button>`;
@@ -650,7 +652,8 @@ function keepAwake() {
   addEventListener('pointerdown', ask); // some phones only allow it after a tap
 }
 
-const colourCss = config.lcars.map((c, i) => `.c${i} { background: ${c}; }`).join('\n');
+/** Console colours: classes c0 … c9, repeating config.lcars if the kids put in fewer. */
+const colourCss = Array.from({ length: 10 }, (_, i) => `.c${i} { background: ${config.lcars[i % config.lcars.length]}; }`).join('\n');
 
 const CSS = `
   body { margin: 0; background: #000; color: #fff;
@@ -667,18 +670,18 @@ const CSS = `
   button:disabled { opacity: 0.35; }
   .bar { display: flex; gap: 8px; align-items: center; height: 44px; }
   .bar .cap { width: 44px; height: 44px; border-radius: 22px 0 0 22px; }
-  .bar .title { white-space: nowrap; font-size: 26px; font-weight: bold; text-transform: uppercase; color: ${config.lcars[0]}; }
+  .bar .title { white-space: nowrap; font-size: 26px; font-weight: bold; text-transform: uppercase; color: ${lcars[0]}; }
   .bar .cap2 { flex: 1; height: 44px; border-radius: 0 22px 22px 0; color: #000; font-weight: bold;
     text-transform: uppercase; display: flex; align-items: center; justify-content: flex-end; padding-right: 16px; font-size: 14px; overflow: hidden; white-space: nowrap; }
   .stations { display: flex; flex-direction: column; gap: 8px; }
   .station, header { display: flex; align-items: center; gap: 12px; padding: 0 14px 0 0; text-align: left;
     background: #111; color: #fff; font-size: 20px; border-radius: 32px 12px 12px 32px; text-transform: none; }
-  header { border-bottom: 6px solid ${config.lcars[0]}; }
+  header { border-bottom: 6px solid ${lcars[0]}; }
   .station > span:nth-child(2), header > span:nth-child(2) { flex: 1; padding: 8px 0; }
   .pill { font-size: 34px; width: 70px; height: 64px; display: grid; place-items: center; border-radius: 32px 0 0 32px; }
   .dots i, header i { display: inline-block; width: 18px; height: 18px; border-radius: 50%; margin-left: 4px; }
   header i { width: 28px; height: 28px; }
-  .info { text-align: center; font-size: 26px; padding: 22px 0; text-transform: uppercase; color: ${config.lcars[4]}; }
+  .info { text-align: center; font-size: 26px; padding: 22px 0; text-transform: uppercase; color: ${lcars[4]}; }
   .big { font-size: 28px; padding: 18px; }
   .small { background: #222; color: #fff; font-size: 18px; padding: 12px; margin-top: auto; }
   .row { display: flex; gap: 10px; }
@@ -689,30 +692,30 @@ const CSS = `
   .readout { display: flex; gap: 14px; align-items: center; background: #111; border-radius: 16px; padding: 12px; }
   .readout b, .readout span { display: block; }
   .readout > div:last-child { min-width: 0; overflow-wrap: anywhere; }
-  .readout #kohde { color: ${config.lcars[0]}; font-size: 19px; }
+  .readout #kohde { color: ${lcars[0]}; font-size: 19px; }
   .readout #matka { font-size: 30px; font-weight: bold; }
-  .readout #nopeus { color: ${config.lcars[2]}; }
-  .compass { width: 84px; height: 84px; border-radius: 50%; border: 4px solid ${config.lcars[1]}; display: grid; place-items: center; font-size: 44px; color: ${config.lcars[0]}; flex: none; }
+  .readout #nopeus { color: ${lcars[2]}; }
+  .compass { width: 84px; height: 84px; border-radius: 50%; border: 4px solid ${lcars[1]}; display: grid; place-items: center; font-size: 44px; color: ${lcars[0]}; flex: none; }
   #nuoli { transition: transform 0.2s; display: inline-block !important; }
   .route div { padding: 10px 16px; margin: 6px 0; border-radius: 999px; background: #111; font-size: 20px; text-transform: uppercase; }
   .route .done { background: #1f4d1a; text-decoration: line-through; opacity: 0.7; }
-  .route .next { background: ${config.lcars[0]}; color: #000; font-weight: bold; }
-  .silly { text-align: center; font-size: 22px; padding: 24px 8px; color: ${config.lcars[1]}; min-height: 60px; }
-  .radar { position: relative; width: 100%; aspect-ratio: 1; border-radius: 50%; border: 3px solid ${config.lcars[2]};
+  .route .next { background: ${lcars[0]}; color: #000; font-weight: bold; }
+  .silly { text-align: center; font-size: 22px; padding: 24px 8px; color: ${lcars[1]}; min-height: 60px; }
+  .radar { position: relative; width: 100%; aspect-ratio: 1; border-radius: 50%; border: 3px solid ${lcars[2]};
     background: radial-gradient(circle, #102040 0%, #000 70%); overflow: hidden; }
-  .radar .reach { position: absolute; inset: 14.3%; border-radius: 50%; border: 2px dashed ${config.lcars[0]}; opacity: 0.6; }
+  .radar .reach { position: absolute; inset: 14.3%; border-radius: 50%; border: 2px dashed ${lcars[0]}; opacity: 0.6; }
   .radar .me { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 30px; }
   .radar .dot { position: absolute; transform: translate(-50%, -50%); background: none; font-size: 40px; padding: 8px;
     transition: left 0.2s linear, top 0.2s linear; }
   .radar .dot.mohko { font-size: 54px; }
   .radar .dot.far { opacity: 0.4; }
-  .hint { text-align: center; font-size: 18px; color: ${config.lcars[4]}; text-transform: uppercase; }
+  .hint { text-align: center; font-size: 18px; color: ${lcars[4]}; text-transform: uppercase; }
   .energy { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
   .energy .name { width: 100%; font-size: 18px; text-transform: uppercase; }
   .energy button { width: 52px; height: 52px; padding: 0; font-size: 28px; }
   .pips { flex: 1; display: flex; gap: 4px; }
   .pips i { flex: 1; height: 26px; border-radius: 6px; background: #222; }
-  .pips i.full { background: ${config.lcars[0]}; }
+  .pips i.full { background: ${lcars[0]}; }
   .faults { display: flex; flex-direction: column; gap: 8px; }
   .fault { background: #ff5c5c; text-align: left; border-radius: 16px; animation: wobble 0.4s infinite alternate; }
   @keyframes wobble { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }
@@ -725,7 +728,7 @@ const CSS = `
   .scan .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: #fff; opacity: 0.6; }
   .scan .label { position: relative; }
   .found div { padding: 10px 16px; margin: 6px 0; border-radius: 999px; background: #111; font-size: 20px; text-transform: uppercase; }
-  .found .arrow { display: inline-block; color: ${config.lcars[0]}; }
+  .found .arrow { display: inline-block; color: ${lcars[0]}; }
   #sumu { color: #fff1b8; }
   body.alert { animation: redalert 0.5s infinite alternate; }
   @keyframes redalert { from { box-shadow: inset 0 0 0 0 #f00; } to { box-shadow: inset 0 0 60px 20px #f00; } }
@@ -735,12 +738,12 @@ const CSS = `
   .answers { display: flex; flex-direction: column; gap: 10px; }
   .answers button { font-size: 44px; padding: 12px; }
   .tasks { display: flex; flex-direction: column; gap: 8px; }
-  .task { background: ${config.lcars[3]}; text-align: left; font-size: 18px; border-radius: 16px; }
+  .task { background: ${lcars[3]}; text-align: left; font-size: 18px; border-radius: 16px; }
   .catbtn { background: #ffcc99; font-size: 24px; }
   .mood { display: flex; align-items: center; gap: 12px; }
   .mood #naama { font-size: 52px; }
   .mood .bar { flex: 1; height: 28px; border-radius: 14px; background: #222; overflow: hidden; }
-  .mood .bar i { display: block; height: 100%; background: ${config.lcars[1]}; transition: width 0.3s; }
+  .mood .bar i { display: block; height: 100%; background: ${lcars[1]}; transition: width 0.3s; }
   .heart { background: none; font-size: 110px; padding: 0; animation: beat infinite ease-out; }
   .heart:active { transform: none; }
   @keyframes beat { 0% { transform: scale(1.3); } 30% { transform: scale(0.9); } 100% { transform: scale(0.9); } }
@@ -749,8 +752,8 @@ const CSS = `
   #catcover span { display: block; font-size: 120px; animation: wobble 0.3s infinite alternate; }
   #catcover small { color: #333; }
   body.ping { animation: ping 0.3s 5 alternate; }
-  @keyframes ping { from { background: #000; } to { background: ${config.lcars[3]}; } }
-  .code { text-align: center; font-size: 56px; letter-spacing: 16px; color: ${config.lcars[0]}; }
+  @keyframes ping { from { background: #000; } to { background: ${lcars[3]}; } }
+  .code { text-align: center; font-size: 56px; letter-spacing: 16px; color: ${lcars[0]}; }
   .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .pad button { background: ${config.lcars[1]}; font-size: 34px; padding: 18px 0; }
+  .pad button { background: ${lcars[1]}; font-size: 34px; padding: 18px 0; }
 `;

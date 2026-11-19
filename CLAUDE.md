@@ -9,7 +9,8 @@ kids are waiting, so make the change quickly and keep the game playable.
 - Every game is a folder in `games/`: `games/tasohyppely/` (platformer),
   `games/labyrintti/` (maze) and `games/lumisota/` (top-down snowball fight made
   with Phaser 4.2.1 – use only Phaser 4 APIs there), `games/reaktio/` (tapping game
-  for touch screens), plus any the team adds. The gallery page
+  for touch screens), `games/avaruuskelkka/` (bridge crew: phones are the stations of a
+  spaceship, the computer is the main screen; Phaser 4.2.1 + Firebase), plus any the team adds. The gallery page
   (`index.html` + `gallery/`) lists them all automatically from their `meta.json`.
 - Work in the game the kids are playing. If it isn't clear which one, ask once.
 - Read that game's `README.md` first: it maps which file and function handles what.
@@ -18,7 +19,7 @@ kids are waiting, so make the change quickly and keep the game playable.
 - Look things up before inventing them:
   - `docs/recipes/` – how to do common requests (hahmo, vihollinen, kentta, ammus, sade,
     kuva = draw an own character as SVG);
-    they cover tasohyppely and labyrintti – for lumisota and reaktio their README is the map
+    they cover tasohyppely and labyrintti – for lumisota, reaktio and avaruuskelkka their README is the map
   - `assets/CATALOG.md` – emoji ideas, themes and sound names
 - `kit/` is shared by every game: import it with `@kit/...`, don't change it for
   one game. Never write your own keyboard, gamepad, touch, storage or sound code

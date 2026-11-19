@@ -82,6 +82,21 @@ and answer **"Yes, and don't ask again"** when Claude first runs `npm` or `git`.
 - **"Kumoa"** undoes the last change, **"Peli on rikki"** fixes errors.
 - Adult keys: ⚙️ / Esc menu, Shift+N next level, Shift+G can't get hurt, P pause, M mute.
 
+### Avaruuskelkka on the day
+
+1. On the projector computer open the **published** game,
+   `https://<organisation>.github.io/<repo-name>/games/avaruuskelkka/`, and press F11 for full screen.
+   (Phones can't reach `localhost`, so use the published page for real phones.)
+2. Kids scan the QR code (or open `…/games/avaruuskelkka/?liity` and type the room code)
+   and each picks a station. Stations nobody picks run on autopilot.
+3. The Kapteeni taps **Tehkää niin!** (or click the button on the main screen).
+4. After the kids' changes are published (about a minute), reload the main screen: the trip
+   continues in the same room. Phones reload themselves only if you reload them.
+5. Testing on one computer: `npm run dev`, then open `…/games/avaruuskelkka/?testi`
+   (the main screen + simulated phones; 📱 + puhelin adds one).
+
+Phones and the computer need internet (Firebase). Check that the venue Wi-Fi allows it.
+
 ### Problems
 
 | Problem | Fix |
@@ -89,6 +104,8 @@ and answer **"Yes, and don't ask again"** when Claude first runs `npm` or `git`.
 | Web page shows 404 | Do steps 2.2 and 2.3. |
 | `git push` fails with a login error | Set up the git login (step 1). |
 | `git push` is rejected | Tell Claude "push epäonnistui". |
+| Avaruuskelkka: a phone says "Huonetta ei löytynyt" | Rescan the QR code on the main screen (the room changed). |
+| Avaruuskelkka: phones don't react | Check the internet connection; reload the phone. |
 | Anything else | Call the technical lead. |
 
 ## What's in here
@@ -100,6 +117,7 @@ and answer **"Yes, and don't ask again"** when Claude first runs `npm` or `git`.
 | `games/labyrintti/` | Maze: 2 levels, critters, a key and doors. |
 | `games/lumisota/` | Top-down snowball fight made with Phaser 4.2.1: waves of snowmen and a boss, or player vs player. |
 | `games/reaktio/` | Nopeat näpit: a tapping reaction game for touch screens (several fingers at once). |
+| `games/avaruuskelkka/` | Avaruuskelkka: a co-op starship-bridge game for 2–10 players. Phones are the ship's stations, the projector is the main screen. Uses Firebase (see below). |
 | `kit/` | Shared engine: loop, input (2 players + gamepads), touch (taps), sound, sprites, physics, particles, ui, themes, menu; `kit/phaser.ts` for Phaser games. |
 | `docs/recipes/` | Short how-tos for common requests. |
 | `assets/CATALOG.md` | Emoji ideas, themes, sound names. |

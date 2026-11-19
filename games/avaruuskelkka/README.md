@@ -1,14 +1,17 @@
 # avaruuskelkka – map for the agent
 
-A co-op bridge-crew game. Every **phone** is one station of a spaceship; the
-**computer** is the ship's main screen (projector). The crew flies to a far-away
-planet together. Firebase keeps everyone in sync (see `CLAUDE.md` → Avaruuskelkka
-exceptions). The full plan and what's still coming: `PLAN.md`.
+A co-op bridge-crew game (a goofy starship-bridge parody). Every **phone** is one
+station of the USS Avaruuskelkka; the **computer** is the ship's main viewscreen
+(projector). 2–10 players fly from Kotitelakka to Planeetta Kotikolo together, past
+rocks, pie-throwing pirates, fog, aliens, a singing whale and a space cat. The game
+can't be lost: trouble only slows the ship down. A round takes about 5–10 minutes.
+Firebase keeps everyone in sync (see `CLAUDE.md` → Avaruuskelkka exceptions).
+Background and design decisions: `PLAN.md`.
 Everything in this game lives in these files; don't create new files.
 
 | File | What is in it |
 | --- | --- |
-| `config.ts` | Ship emoji, the stations (name, emoji, job), player colours, theme. **Start here.** |
+| `config.ts` | Every number, emoji and text: ship, stations, route, dangers, secrets, aliens, mood, colours. **Start here.** |
 | `main.ts` | Picks the mode from the address, and the `?testi` view |
 | `paanaytto.ts` | Main screen (Phaser 4.2.1): console frame, lobby + QR code, space and ship, mini map, banners, arrival party |
 | `simulaatio.ts` | The game rules, run only by the main screen; Firebase paths and data shapes |
@@ -60,6 +63,18 @@ Everything in this game lives in these files; don't create new files.
 | What a button on a phone does | `send('action')` in `asemat.ts` → `handle()` in `simulaatio.ts` |
 | Sounds (main screen) | `sfx('name')` from `@kit/sound`; names: jump coin hit powerup win lose boom click shoot bounce roar fart |
 
+## Bigger requests
+
+| Kids ask for … | How |
+| --- | --- |
+| A new station ("lohikäärme puhaltaa tulta") | Add it to `config.stations` (new lowercase `id`). It works right away with the silly console view; give it a real job by adding a view to `views` in `asemat.ts` (`html` + `live`, buttons with `data-send="action"`) and a line in `handle()` in `simulaatio.ts` (`'id:action'`). |
+| A new kind of danger | Copy the rock: a new `ThreatKind`, spawn it in `spawnDangers`, give it a texture in `makeDangerFx` and a size in `drawThreats`. |
+| A new event at a place | Add a flag to `Waypoint` (like `song` / `aliens`), check it in `people()` with `place(s, i)`, show it in `paanaytto.ts`. |
+
+Safe to change without breaking the game (tested): up to 10 stations (the lobby
+shrinks the cards), fewer console colours (they repeat), removing or adding places on
+the route, different emoji and texts everywhere.
+
 ## How it fits together
 
 - Look: a goofy starship-bridge parody (see PLAN.md "Look & feel"): rounded console
@@ -90,4 +105,5 @@ Everything in this game lives in these files; don't create new files.
 
 ## Adult keys (main screen)
 
-⚙️ Asetukset (or Esc): "Aloita alusta" = back to the lobby, sound on/off · M mute
+⚙️ Asetukset (or Esc): "Aloita alusta" = back to the lobby, sound on/off · M mute ·
+reloading the main screen page continues the trip in the same room.

@@ -552,7 +552,7 @@ export class Simulaatio {
         // WHOOSH! Out of the other end, and on to the next place from there
         s.x = sec.exit.x;
         s.y = sec.exit.y;
-        s.target = Math.max(s.target, sec.exit.target);
+        s.target = Math.min(config.route.length - 1, Math.max(s.target, sec.exit.target));
         s.choice = -1;
         this.threats = [];
         this.on.wormhole(i);

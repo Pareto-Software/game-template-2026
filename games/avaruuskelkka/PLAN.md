@@ -9,7 +9,7 @@ flies the ship from the home base to a far-away destination planet. The game
 Made for the "Lapsi töihin" day: kids (8–13) change it by telling Claude their
 ideas, so almost everything they'd want to change lives in `config.ts`.
 
-Status: **phase 6 done** (polish: 2.2× bigger map – autopilot-only trip ~2 min, phones stay awake, main screen reload continues the trip, bridge beeps) – next: phase 7 (kid-ready + real-phone playtest). Open decisions are marked **❓**.
+Status: **phases 0–7 done** – the game is complete and published. Left: the **real-phone playtest** (section 9). Open decisions are marked **❓**.
 
 ---
 
@@ -180,7 +180,7 @@ Also `?liity` = number-button pad for typing the room code without the QR code.
 4. ✅ **Discovery**: Science (hidden things) + Captain (route choices, red alert).
 5. ✅ **People**: Comms (emoji aliens) + Ops (alerts, tractor beam) + Counselor (morale).
 6. ✅ **Polish**: sounds (`@kit/sound`), particles, autopilot tuning, Wake Lock on phones, rejoin after reload.
-7. **Kid-ready**: README map, `meta.json`, recipes-style table of easy changes, playtest on real phones via GitHub Pages.
+7. ✅ **Kid-ready** (playtest on real phones still to do – section 9): README map, `meta.json`, recipes-style table of easy changes, playtest on real phones via GitHub Pages.
 
 ## 6. Risks / notes
 - **Wi-Fi**: phones and the main screen need internet; guest Wi-Fi may block Firebase websockets (it falls back to long-polling). Test on site beforehand.
@@ -190,7 +190,7 @@ Also `?liity` = number-button pad for typing the room code without the QR code.
 - **Local dev hits the real database** (no emulator): fine, rooms are separate and auto-cleaned.
 
 ## 7. Open decisions ❓
-1. Approve the **sector & event list** below (section 8).
+1. ~~Approve the sector & event list~~ – built as listed in section 8.
 
 ## 8. Route & events (proposal – phases 3–5 build these)
 
@@ -209,3 +209,23 @@ Phase 2 flight: about 75 s on autopilot. Events should bring a round to 5–10 m
 | Pörröpäiden asema | 👾 Aliens call in emoji | Viestintä picks the right emoji reply → they give fuel | 5 |
 | Laulupaikka | 🐋 Space whale sings, crew gets sleepy | Neuvonantaja keeps morale up (rhythm game) | 5 |
 | Anywhere | 🐈 The space cat walks on a console | Operaatiot catches it | 5 |
+
+## 9. Real-phone playtest (adult, before the day)
+
+On the published site, with 3–5 real phones (both iPhone and Android if possible):
+
+- [ ] Projector computer: open `…/games/avaruuskelkka/`, F11. The QR code and room code show.
+- [ ] Phones scan the QR code and land on "Valitse asema". `?liity` + typing the code also works.
+- [ ] Each phone picks a station; dots with the right colours appear on the main screen.
+- [ ] Kapteeni taps "Tehkää niin!" – every phone switches to its console.
+- [ ] Ohjaus: hold ◀ / ▶ (no text selection or long-press menu), speeds, WARP.
+- [ ] Taktiikka: tapping radar targets zaps them; KILVET YLÖS works.
+- [ ] Konehuone: − / + energy, tapping faults fixes them.
+- [ ] Tiede: holding the scan button fills the bar and scans; fog clears.
+- [ ] Viestintä, Operaatiot, Neuvonantaja: answer an alien, shoo the cat, tap the heart in time.
+- [ ] Phones stay awake (screen doesn't turn off) during the trip.
+- [ ] Lock a phone for a minute, unlock: it's back at its station.
+- [ ] Reload the main screen mid-trip: the trip continues, phones keep working.
+- [ ] Venue Wi-Fi: everything above works on the Wi-Fi the kids will use.
+- [ ] Sound level of the main screen is OK in the room.
+- [ ] A whole trip with real players takes about 5–10 minutes (tune `config.route` distances if not).

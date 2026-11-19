@@ -3,8 +3,6 @@
 // computer is the ship's main viewscreen. See README.md for which file does what.
 // Distances are in pixels of the space map, speeds in pixels per second.
 
-import type { ThemeName } from '@kit/themes';
-
 export interface StationDef {
   /** Short id, lowercase a–z only (it is stored in Firebase). Don't change it in a running game. */
   id: string;
@@ -55,8 +53,6 @@ export interface SecretDef {
 
 export const config = {
   title: 'Avaruuskelkka',
-  /** perus, talvi, avaruus, viidakko, laava or meri (see kit/themes.ts) */
-  theme: 'avaruus' as ThemeName,
 
   /** Laiva – the crew's spaceship. */
   ship: { name: 'USS Avaruuskelkka', emoji: '🚀', size: 150 },
