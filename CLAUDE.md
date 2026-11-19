@@ -74,9 +74,10 @@ kids are waiting, so make the change quickly and keep the game playable.
 ## Avaruuskelkka exceptions (`games/avaruuskelkka/`)
 Avaruuskelkka is a bridge-crew game: phones are the ship's stations, the
 computer is the main screen. Plan: `games/avaruuskelkka/PLAN.md`. Only in this game:
-- It talks to Firebase, but only through `online` from `@kit/firebase`. Never add
-  other network code, and never change `database.rules.json`, `firebase.json` or
-  `kit/firebase*.ts` for a kid's request.
+- It talks to Firebase, but only through `online` from `@kit/firebase` (paths like
+  `rooms/1234/state`; the kit keeps each game in its own `games/<game>/` section). Never
+  add other network code, and never change `database.rules.json`, `firebase.json`,
+  `.firebaserc`, `firebase-web-config.json` or `kit/firebase.ts` for a kid's request.
 - Store only what the rules allow: station names, colours, numbers, true/false and
   short codes. Never typed text, names or anything personal.
 - The main screen may show a QR code of the game's own address (`location.href`) –

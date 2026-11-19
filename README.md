@@ -140,12 +140,52 @@ an existing one); it appears in the gallery and the build automatically.
   **← Kaikki pelit** goes back to the gallery.
 - Adult keys: Shift+N next level, Shift+G can't get hurt, Shift+R restart level, P pause, M mute.
 
-## Notes
+## Firebase (online games)
 
-- **Avaruuskelkka** uses Firebase (project `avaruuskelkka`, Realtime Database in
-  europe-west1, anonymous sign-in). Web config: `kit/firebase-config.ts`; rules:
-  `database.rules.json`, deployed with `npx firebase-tools deploy --only database`
-  (needs `npx firebase-tools login` with an account on the project).
+Games played on many devices at once (like Avaruuskelkka) use Firebase Realtime
+Database through `online` from `@kit/firebase`. Players sign in anonymously; no
+names or typed text are ever stored.
+
+| File | What |
+| --- | --- |
+| `firebase-web-config.json` | **Which Firebase project** the games use (the web app config – public by design). |
+| `.firebaserc` | The same project id, for the `firebase-tools` CLI. |
+| `database.rules.json` | Who may read and write what. Deploy with `npx firebase-tools deploy --only database`. |
+| `kit/firebase.ts` | The `online` helper: rooms, read/watch/write, presence. |
+
+**Every game has its own section.** The kit puts each game's data under
+`games/<game folder>/…`, worked out from the page address. A game just uses paths like
+`rooms/1234/state`, and in the database they end up at `games/avaruuskelkka/rooms/1234/state`.
+Two games never see each other's rooms, and a new online game needs no setup: copy a
+game folder, import `online` and use `rooms/…`. The rules allow, in every game section,
+`rooms/<4-digit code>/` with `createdAt`, `hostUid`, `phase`, `state` (host only),
+`players/<uid>` (`station` + `colour`), `inputs/<station>` and `commands/<id>`
+(short codes and numbers only). A game that needs something else needs a rules change.
+
+### Firebase: use your own project
+
+The repo points at the project `avaruuskelkka`. To use another one (e.g. your own team's copy):
+
+1. `npx firebase-tools login` (a Google account that can create projects).
+2. In the [Firebase console](https://console.firebase.google.com): **Create a project**
+   (Analytics not needed), then **Build → Realtime Database → Create database**
+   (location e.g. *europe-west1*, *locked mode*), and **Authentication → Get started →
+   Sign-in method → Anonymous → Enable**.
+3. Create a web app and print its config:
+   `npx firebase-tools apps:create web peli --project <project-id>`, then
+   `npx firebase-tools apps:sdkconfig web --project <project-id>`.
+4. Copy the values into `firebase-web-config.json`: `apiKey`, `authDomain`, `databaseURL`,
+   `projectId`, `storageBucket`, `messagingSenderId`, `appId`. If `databaseURL` is missing,
+   it is shown in the console's Realtime Database page, e.g.
+   `https://<project-id>-default-rtdb.europe-west1.firebasedatabase.app`.
+5. Put the same project id in `.firebaserc`.
+6. Deploy the rules: `npx firebase-tools deploy --only database`.
+7. Commit and push. Test with `…/games/avaruuskelkka/?testi`.
+
+If `firebase-web-config.json` is empty or incomplete, the online games show a yellow
+"Firebase ei ole asetettu" box instead of starting.
+
+## Notes
 
 - `npm run check` type-checks; `npm run build` never does, so a type error can't
   block publishing.

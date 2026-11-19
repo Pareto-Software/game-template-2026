@@ -1,0 +1,10 @@
+{
+  "_ohje": "This repo's Firebase project. To use your own: README.md → 'Firebase: use your own project'. Also change the project id in .firebaserc.",
+  "apiKey": "AIzaSyBMVFftmH3ejRaGIt5CXeYgj8mVM2McngA",
+  "authDomain": "avaruuskelkka.firebaseapp.com",
+  "databaseURL": "https://avaruuskelkka-default-rtdb.europe-west1.firebasedatabase.app",
+  "projectId": "avaruuskelkka",
+  "storageBucket": "avaruuskelkka.firebasestorage.app",
+  "messagingSenderId": "1039979419245",
+  "appId": "1:1039979419245:web:545bf2c85c188974be5164"
+}

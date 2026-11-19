@@ -99,8 +99,10 @@ the route, different emoji and texts everywhere.
 - Helm sends held values to `inputs/ohjaus` (`turn`, `throttle`); `steer()` in `simulaatio.ts` reads them,
   or flies on autopilot when nobody is at Ohjaus.
 - Phones only **send** (`send('aloita')`) and **show**. They never decide game rules.
-- Firebase only through `online` from `@kit/firebase`. Only the keys allowed by
-  `database.rules.json` can be stored: station ids, colours, numbers, true/false, short codes.
+- Firebase only through `online` from `@kit/firebase`. Paths are relative to this game's
+  own section: `rooms/1234/state` is really `games/avaruuskelkka/rooms/1234/state`.
+  Only the keys allowed by `database.rules.json` can be stored: station ids, colours,
+  numbers, true/false, short codes. Which Firebase project: `firebase-web-config.json` (root README → Firebase).
 - A command's `action` and `value` must be short codes (`a-z A-Z 0-9 _`), never text.
 
 ## Adult keys (main screen)

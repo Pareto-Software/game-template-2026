@@ -27,7 +27,7 @@ Status: **phases 0–7 done** – the game is complete and published. Left: the 
 | Backend | Firebase Realtime Database + Anonymous Auth, Spark (free) plan |
 | Firebase code | Shared `kit/firebase.ts` (reusable by future games) |
 | Dependencies | `firebase` npm package added to `package.json`; `npx firebase-tools` for rules/deploy (no global install) |
-| Data | One room per main screen: `/rooms/<code>`. Rooms older than 24 h are deleted when a new room is made. No names or personal data, ever |
+| Data | One room per main screen: `/games/avaruuskelkka/rooms/<code>` (each game its own section). Rooms older than 24 h are deleted when a new room is made. No names or personal data, ever |
 | Dev testing | "Simulated phones" debug view: main screen + several station iframes on one computer |
 | Hosting | GitHub Pages via the existing `julkaise.yml` (no changes needed) |
 | UI language | Finnish |
@@ -112,7 +112,7 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 
 ### Firebase data model
 ```
-/rooms/<code>
+/games/avaruuskelkka/rooms/<code>   (every game has its own games/<game>/ section)
   createdAt, hostUid, phase: 'aula' | 'matka' | 'perilla'
   players/<uid>:  { station, colour, lastSeen }        ← written by that player; onDisconnect → removed
   inputs/<station>: { …slider/held values… }           ← continuous inputs (Helm wheel, energy)
@@ -122,7 +122,7 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 
 ### Security rules (`database.rules.json`, deployed with `npx firebase-tools`)
 - Everything requires `auth != null` (anonymous).
-- `/rooms/<code>`: create if it doesn't exist; delete if `hostUid == auth.uid` or `createdAt` older than 24 h.
+- `/games/<game>/rooms/<code>`: create if it doesn't exist; delete if `hostUid == auth.uid` or `createdAt` older than 24 h.
 - `state`, `phase`: only `hostUid` writes.
 - `players/<uid>`: only that uid writes.
 - `commands`, `inputs`: any player in the room; `.validate` limits keys and sizes (no free strings).
@@ -134,7 +134,7 @@ no names; a player is "Kapteeni 🟡" etc. (station + colour).
 - `createRoom()` (random free 4-digit code + old-room cleanup), `joinRoom(code)`
 - `watch(path, cb)`, `write(path, value)`, `update(path, patch)`, `push(path, value)`,
   `onLeave(path)` (onDisconnect), `serverTime()`
-- Firebase web config (public by design) in `kit/firebase-config.ts`.
+- Firebase web config (public by design) in `firebase-web-config.json` at the repo root (another team can point it at their own project – root README → Firebase).
 
 ### Files in `games/avaruuskelkka/` (this is the fixed set; after it exists, the
 "no new files" rule applies again)
@@ -155,7 +155,7 @@ Also `?liity` = number-button pad for typing the room code without the QR code.
 
 ### Other repo changes
 - `package.json`: add `firebase` and `qrcode` (+ `@types/qrcode` dev). Root: `firebase.json`, `.firebaserc`, `database.rules.json`.
-- `kit/firebase.ts`, `kit/firebase-config.ts`.
+- `kit/firebase.ts`, `firebase-web-config.json`.
 - `CLAUDE.md`: an **Avaruuskelkka exception** section: Firebase only via `@kit/firebase`;
   network access to Firebase allowed; QR code of the game's own address allowed;
   phones are touch-only and the main screen has no keyboard players (the "both players'
@@ -168,7 +168,7 @@ Also `?liity` = number-button pad for typing the room code without the QR code.
 2. ✅ Project **`avaruuskelkka`** (made in the console; the CLI got 403 on `addFirebase`). Web app `1:1039979419245:web:545bf2c85c188974be5164` ✅
 3. ✅ Realtime Database `avaruuskelkka-default-rtdb` in **europe-west1** (made in the console).
 4. ✅ Enable **Anonymous** sign-in (Console → Authentication; the CLI can't fully do this, so this is one console click).
-5. ✅ `npx firebase-tools apps:create web` → copy the config to `kit/firebase-config.ts`.
+5. ✅ `npx firebase-tools apps:create web` → copy the config to `firebase-web-config.json`.
 6. ✅ `npx firebase-tools deploy --only database` (rules; verified live: 18 allow/deny checks pass).
 7. Console: restrict the API key to the GitHub Pages domain + `localhost` (optional hardening).
 
