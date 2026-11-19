@@ -11,7 +11,8 @@ import { sfx } from '@kit/sound';
 import { config, type StationDef } from './config';
 import {
   paths, crewByStation, towards, angleDiff, stardate, hull, place, moodFace, callAnswers, stationIndex,
-  type Phase, type PlayerInfo, type ShipState, type HelmInput, type Energy, type ThreatKind,
+  faultAt, faultText, boosted,
+  type Phase, type PlayerInfo, type ShipState, type HelmInput, type ThreatKind,
 } from './simulaatio';
 
 const app = document.createElement('div');
@@ -143,6 +144,15 @@ interface StationView {
 
 const $ = (id: string) => document.getElementById(id);
 
+/** Is a request of this kind waiting for the Captain? */
+const waitingFor = (s: ShipState, what: string) => s.requests?.some((r) => r.what === what) ?? false;
+
+/** Buttons for choosing a crewmate (for ⚡ and 💖): one per station, except the ones in skip. */
+function crewButtons(action: string, skip: string[], icon: string) {
+  return config.stations.map((st, i) => (skip.includes(st.id) ? ''
+    : `<button class="c${i % 10} pick" data-send="${action}" data-value="${i}">${icon} ${st.emoji} ${st.name}</button>`)).join('');
+}
+
 /** Ohjaus: steer left/right, choose the speed, WARP! */
 const helm = (() => {
   const input: HelmInput = { turn: 0, throttle: 0 };
@@ -168,8 +178,10 @@ const helm = (() => {
       $('matka')!.textContent = s.fog ? '??? km' : `${Math.round(dir.distance)} km`;
       $('nopeus')!.textContent = s.warping ? 'WARP!!!' : `Nopeus ${s.speed}`;
       const warp = $('warp') as HTMLButtonElement;
-      warp.disabled = s.warpCharge > 0;
-      warp.textContent = s.warpCharge > 0 ? `Warp latautuu… ${s.warpCharge}` : '✨ WARP! ✨';
+      const asking = waitingFor(s, 'warp');
+      warp.disabled = s.warpCharge > 0 || asking;
+      warp.textContent = s.warpCharge > 0 ? `Warp latautuu… ${s.warpCharge}`
+        : asking ? '⏳ Odotetaan kapteenin lupaa…' : '✨ WARP! (kysy kapteenilta) ✨';
       // Just sat down: show the speed the ship already has
       if (!document.querySelector('.throttle .on')) { input.throttle = s.throttle; markThrottle(s.throttle); }
     },
@@ -193,6 +205,7 @@ function markThrottle(n: number) {
 /** Kapteeni during the trip: everyone's status, red alert, route choices and the route. */
 const captain: StationView = (() => {
   let shownChoice = -2;
+  let shownRequests = '';
   /** "lyhyt mutta kivinen" etc. – compares the two places. */
   const describe = (s: ShipState, i: number, w: { x: number; y: number; rocks?: boolean; pirate?: boolean; fog?: boolean }) => {
     const prev = place(s, i - 1);
@@ -206,8 +219,10 @@ const captain: StationView = (() => {
   return {
     html: () => {
       shownChoice = -2;
+      shownRequests = '';
       return `
       <div class="status" id="tila"></div>
+      <div id="pyynnot"></div>
       <div id="valinta"></div>
       <button class="big alertbtn" id="halytys" data-send="halytys">🚨 Punainen hälytys!</button>
       <div class="route">${config.route.map((_, i) => `<div data-paikka="${i}"></div>`).join('')}</div>
@@ -227,6 +242,23 @@ const captain: StationView = (() => {
         el.className = i < s.target ? 'done' : i === s.target ? 'next' : '';
       });
       $('hassu')!.textContent = `Tähtipäivä ${stardate(s.time)}`;
+      // Requests waiting for "Tehkää niin!": redraw only when the list changes, update the seconds
+      const requests = s.requests ?? [];
+      const key = requests.map((r) => r.id).join(',');
+      if (key !== shownRequests) {
+        shownRequests = key;
+        $('pyynnot')!.innerHTML = requests.map((r) => {
+          const st = config.stations[r.from];
+          return `<div class="request"><div>📨 ${st?.emoji ?? ''} ${st?.name ?? ''} pyytää: <b>${config.captain.requests[r.what]}</b> <span data-aika="${r.id}"></span></div>
+            <div class="row"><button class="c0" data-send="hyvaksy" data-value="${r.id}">✅ Tehkää niin!</button>
+            <button class="c5" data-send="hylkaa" data-value="${r.id}">❌ Ei</button></div></div>`;
+        }).join('');
+        if (requests.length) sfx('click', { pitch: 2.5 });
+      }
+      for (const r of requests) {
+        const t = document.querySelector(`[data-aika="${r.id}"]`);
+        if (t) t.textContent = `${r.time} s`;
+      }
       // Route choice: redraw the two buttons only when a new choice starts or ends
       if (s.choice !== shownChoice) {
         shownChoice = s.choice;
@@ -332,9 +364,15 @@ const tactical: StationView = (() => {
         dot.style.left = `${50 + t.dx * scale * 50}%`;
         dot.style.top = `${50 + t.dy * scale * 50}%`;
         dot.classList.toggle('far', Math.hypot(t.dx, t.dy) > config.tactical.range);
+        dot.classList.toggle('weak', !!t.w);
       }
       radar.querySelectorAll<HTMLElement>('[data-zap]').forEach((d) => { if (!seen.has(d.dataset.zap!)) d.remove(); });
-      $('laser')!.textContent = s.reload > 0 ? 'Laser latautuu… 🔋' : 'Kosketa kohdetta = PIU PIU! 🔴';
+      radar.classList.toggle('blurry', !!faultAt(s, 'taktiikka'));
+      const pirate = (s.radar ?? []).some((t) => t.k === 'mohko');
+      $('laser')!.textContent = s.reload > 0 ? 'Laser latautuu… 🔋'
+        : pirate && waitingFor(s, 'aseet') ? '⏳ Odotetaan kapteenin lupaa ampua Möhköttäjää…'
+          : pirate && !s.weaponsFree ? '🔒 Möhköttäjä: ammu = kysy kapteenilta lupa'
+            : pirate ? '🔓 Aseet vapaat! PIU PIU! (🎯 = tupla)' : 'Kosketa kohdetta = PIU PIU! 🔴';
       const shield = $('kilvet') as HTMLButtonElement;
       shield.disabled = s.shield > 0 || s.shieldCharge > 0;
       shield.textContent = s.shield > 0 ? `🛡️ Kilvet ylhäällä ${s.shield}` : s.shieldCharge > 0 ? `Kilvet latautuu… ${s.shieldCharge}` : '🛡️ Kilvet ylös!';
@@ -342,42 +380,61 @@ const tactical: StationView = (() => {
   };
 })();
 
-/** Konehuone: share the energy, tap faults to fix them. */
-const engineering: StationView = (() => {
-  const systems: [keyof Energy, string][] = [['moottori', '🔥 Moottori'], ['kilvet', '🛡️ Kilvet'], ['aseet', '🔴 Aseet']];
+/** Konehuone: keep the reactor needle in the green to charge ⚡, send it to a station, fix faults. */
+const engineering: StationView & { reset: () => void } = (() => {
   let shownFaults = '';
+  let needle = 50;
+  let speed = 0;
+  let charge = 0;
+  let timer = 0;
+  const green = [35, 65];
+  /** The needle wobbles by itself; in the green zone the ⚡ charges. */
+  const tick = () => {
+    const bar = $('neula');
+    if (!bar) { clearInterval(timer); return; }
+    speed = Math.max(-3, Math.min(3, speed + (Math.random() - 0.5) * 2.4));
+    needle += speed;
+    if (needle < 0 || needle > 100) { needle = Math.max(0, Math.min(100, needle)); speed = -speed; }
+    const inGreen = needle >= green[0] && needle <= green[1];
+    if (inGreen && charge < 100) charge = Math.min(100, charge + 5000 / (config.boosts.power.chargeSeconds * 1000));
+    bar.style.left = `${needle}%`;
+    $('reaktori')!.classList.toggle('ok', inGreen);
+    $('virta')!.style.width = `${charge}%`;
+    const targets = $('kohteet')!;
+    if (charge >= 100 && !targets.innerHTML) {
+      targets.innerHTML = `<div class="hint">⚡ Täynnä! Kenelle virtaa?</div>${crewButtons('virta', ['konehuone'], '⚡')}`;
+    }
+  };
   return {
     html: () => {
       shownFaults = '';
+      clearInterval(timer);
+      timer = window.setInterval(tick, 50);
       return `
+      <div class="hint">Pidä reaktorin neula vihreällä ◀ ▶</div>
+      <div class="reactor" id="reaktori"><span class="zone"></span><span class="needle" id="neula"></span></div>
+      <div class="row"><button class="c3" data-reactor="-1">◀</button><button class="c3" data-reactor="1">▶</button></div>
+      <div class="charge"><i id="virta"></i></div>
+      <div class="crew" id="kohteet"></div>
       <div class="hint" id="runko"></div>
-      ${systems.map(([id, name], i) => `<div class="energy">
-        <span class="name">${name}</span>
-        <button class="c5" data-energy="${id}_miinus">−</button>
-        <span class="pips" id="pips-${id}">${'<i></i>'.repeat(config.energy.max)}</span>
-        <button class="c${i + 1}" data-energy="${id}_plus">+</button>
-      </div>`).join('')}
-      <div class="hint" id="vapaa"></div>
       <div class="faults" id="viat"></div>`;
     },
     live: (s) => {
-      const used = s.energy.moottori + s.energy.kilvet + s.energy.aseet;
-      for (const [id] of systems) {
-        $(`pips-${id}`)!.querySelectorAll('i').forEach((pip, i) => pip.classList.toggle('full', i < s.energy[id]));
-      }
-      const free = config.energy.total - used;
-      $('vapaa')!.textContent = free > 0 ? `Vapaata energiaa: ${'⚡'.repeat(free)}` : 'Ei vapaata energiaa – ota ensin toisesta (−)';
       $('runko')!.textContent = `Runko ${hull(s)} %`;
       // Redraw the fault buttons only when they change, so taps aren't lost
       const faults = s.faults ?? [];
-      const key = faults.map((f) => `${f.id}:${f.left}`).join(',');
+      const key = faults.map((f) => `${f.id}:${Math.ceil(f.left)}`).join(',');
       if (key === shownFaults) return;
       shownFaults = key;
       $('viat')!.innerHTML = faults.length
-        ? faults.map((f) => `<button class="fault" data-fix="${f.id}">💥 ${config.faults.names[f.name]}<small>Napauta ${f.left}×</small></button>`).join('')
+        ? faults.map((f) => `<button class="fault" data-fix="${f.id}">💥 ${faultText(f.station)}<small>Napauta ${Math.ceil(f.left)}×</small></button>`).join('')
         : '<div class="hint">Ei vikoja ✅ Kaikki kunnossa (melkein)</div>';
     },
-  };
+    /** ◀ / ▶ nudges the needle. */
+    nudge: (way: number) => { needle += way * 12; speed = 0; },
+    /** ⚡ was sent: start charging again. */
+    reset: () => { charge = 0; const t = $('kohteet'); if (t) t.innerHTML = ''; },
+  } as StationView & { reset: () => void; nudge: (way: number) => void };
 })();
 
 /** Viestintä: the aliens talk in emoji – pick the friendly answer. */
@@ -387,14 +444,22 @@ const comms: StationView = (() => {
     html: () => { shown = ''; return `<div id="puhelu"></div><div class="silly" id="hassu"></div>`; },
     live: (s) => {
       const call = s.call ?? null;
-      const key = call ? `${call.msg}/${call.order.join('')}` : 'none';
+      const broken = !!faultAt(s, 'viestinta');
+      const helped = boosted(s, 'viestinta');
+      const key = call ? `${call.msg}/${call.order.join('')}/${broken}/${helped}` : 'none';
       if (key !== shown) {
         shown = key;
         const a = config.aliens;
+        // Broken: the message breaks up (every other emoji is ❓). Boosted: one wrong answer disappears.
+        const said = call ? a.messages[call.msg].ask : '';
+        const emoji = [...new Intl.Segmenter().segment(said)].map((x) => x.segment);
+        const ask = broken ? emoji.map((ch, i) => (i % 2 ? '❓' : ch)).join('') : said;
+        const hidden = call && helped ? call.order.indexOf(1) : -1;
         $('puhelu')!.innerHTML = call
-          ? `<div class="call"><span class="alien">${a.emoji}</span><span class="says">${a.messages[call.msg].ask}</span></div>
+          ? `<div class="call"><span class="alien">${a.emoji}</span><span class="says">${ask}</span></div>
              <div class="hint">${a.name} soittaa! Mikä on ystävällinen vastaus? <span id="aika"></span></div>
-             <div class="answers">${callAnswers(call).map((ans, i) => `<button class="c${i + 1}" data-send="vastaa" data-value="${i}">${ans}</button>`).join('')}</div>`
+             <div class="answers">${callAnswers(call).map((ans, i) => (i === hidden ? ''
+               : `<button class="c${i + 1}" data-send="vastaa" data-value="${i}">${ans}</button>`)).join('')}</div>`
           : `<div class="info">Kuunnellaan avaruutta… 📡</div>`;
       }
       if (call) $('aika')!.textContent = `${call.time} s`;
@@ -430,7 +495,7 @@ const ops: StationView = (() => {
       <button class="big c6" id="veto" data-send="veto">🧲 Vetosäde</button>`;
     },
     live: (s) => {
-      const list = tasks(s);
+      const list = faultAt(s, 'operaatiot') ? [] : tasks(s);
       const key = list.map(([id, text]) => id + text).join('|') + `/${s.cat}`;
       if (key !== shown) {
         shown = key;
@@ -444,27 +509,44 @@ const ops: StationView = (() => {
           ? `<button class="big catbtn" data-send="kissa">🐟 Houkuttele kissa pois<small>${config.cat.emoji} istuu: ${config.stations[s.cat].name}</small></button>`
           : '';
       }
+      const range = config.ops.tractorRange * (boosted(s, 'operaatiot') ? 2 : 1);
       const near = config.secrets.some((sec, i) => sec.kind === 'kristalli' && s.secrets[i] === 1
-        && towards(s, sec.x, sec.y).distance < config.ops.tractorRange);
+        && towards(s, sec.x, sec.y).distance < range);
       const beam = $('veto') as HTMLButtonElement;
-      beam.disabled = s.tractorCharge > 0 || !near;
+      const asking = waitingFor(s, 'veto');
+      beam.disabled = s.tractorCharge > 0 || !near || asking;
       beam.textContent = s.tractorCharge > 0 ? `Vetosäde latautuu… ${s.tractorCharge}`
-        : near ? '🧲 Vetosäde: nappaa kristalli!' : '🧲 Vetosäde (ei kristallia lähellä)';
+        : asking ? '⏳ Odotetaan kapteenin lupaa…'
+          : near ? '🧲 Vetosäde: nappaa kristalli! (kysy kapteenilta)' : '🧲 Vetosäde (ei kristallia lähellä)';
     },
   };
 })();
 
 /** Neuvonantaja: tap the heart in time to keep the crew happy. */
-const counselor: StationView & { beat: () => void } = (() => {
+const counselor: StationView & { beat: () => void; reset: () => void } = (() => {
   let started = 0;
+  /** Good taps since the last 💖 was sent (the main screen counts them too). */
+  let good = 0;
+  const showHearts = () => {
+    const meter = $('sydamet');
+    if (!meter) return;
+    const need = config.boosts.cheer.beats;
+    meter.textContent = `💖 ${'♥'.repeat(Math.min(good, need))}${'♡'.repeat(Math.max(0, need - good))}`;
+    const crew = $('kannusta')!;
+    if (good >= need && !crew.innerHTML) crew.innerHTML = `<div class="hint">💖 Täynnä! Ketä kannustat?</div>${crewButtons('kannusta', ['neuvonantaja'], '💖')}`;
+  };
   return {
     html: () => {
       started = performance.now();
+      setTimeout(showHearts);
       return `<div class="mood"><span id="naama"></span><div class="bar"><i id="mieli"></i></div></div>
       <div class="hint" id="laulu"></div>
       <button class="heart" data-beat="1" style="animation-duration: ${config.morale.beat}s">💖</button>
-      <div class="hint" id="palaute">Napauta sydäntä kun se on isoimmillaan!</div>`;
+      <div class="hint" id="palaute">Napauta sydäntä kun se on isoimmillaan!</div>
+      <div class="hint" id="sydamet"></div>
+      <div class="crew" id="kannusta"></div>`;
     },
+    reset: () => { good = 0; const c = $('kannusta'); if (c) c.innerHTML = ''; showHearts(); },
     live: (s) => {
       $('naama')!.textContent = moodFace(s.morale);
       $('mieli')!.style.width = `${s.morale}%`;
@@ -473,11 +555,16 @@ const counselor: StationView & { beat: () => void } = (() => {
     /** Big heart = the start of each beat. A tap close to it counts. */
     beat: () => {
       const phase = ((performance.now() - started) / 1000 / config.morale.beat) % 1;
-      const good = phase < 0.22 || phase > 0.88;
+      const inTime = phase < 0.22 || phase > 0.88;
       const feedback = $('palaute');
-      if (good) send('rauhoita');
-      sfx(good ? 'coin' : 'bounce', { pitch: good ? 1.5 : 0.7 });
-      if (feedback) feedback.textContent = good ? 'Hyvä! Tahdissa! 💖' : 'Hups! Odota isoa sydäntä';
+      const broken = !!(now.ship && faultAt(now.ship, 'neuvonantaja'));
+      if (inTime && !broken) {
+        send('rauhoita');
+        good += now.ship && boosted(now.ship, 'neuvonantaja') ? 2 : 1;
+        showHearts();
+      }
+      sfx(inTime ? 'coin' : 'bounce', { pitch: inTime ? 1.5 : 0.7 });
+      if (feedback) feedback.textContent = broken ? '💔 Sydän sekaisin – pyydä Konehuonetta!' : inTime ? 'Hyvä! Tahdissa! 💖' : 'Hups! Odota isoa sydäntä';
     },
   };
 })();
@@ -513,6 +600,29 @@ function live() {
   const mine = stationIndex(now.me.station);
   catOverlay(now.ship.cat === mine);
   pinged(now.ship, mine);
+  faultBanner(now.ship, mine);
+}
+
+/** Red banner when this console is broken; golden glow when it is boosted. */
+function faultBanner(s: ShipState, mine: number) {
+  let el = document.getElementById('vika');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'vika';
+    app.prepend(el);
+  }
+  const fault = s.faults?.find((f) => f.station === mine);
+  const boost = s.boosts?.[mine] ?? 0;
+  const parts: string[] = [];
+  if (fault) parts.push(`<div class="broken">💥 ${faultText(mine)}<small>Pyydä Konehuonetta korjaamaan!</small></div>`);
+  if (boost > 0) {
+    const by = s.boostBy?.[mine] === 2 ? '💖 Neuvonantaja kannusti' : '⚡ Konehuone antoi virtaa';
+    parts.push(`<div class="boosted">${by}: ${config.boosts.texts[now.me!.station] ?? 'Tehostus!'} <b>${boost} s</b></div>`);
+  }
+  const html = parts.join('');
+  if (el.innerHTML !== html) el.innerHTML = html;
+  document.body.classList.toggle('boost', boost > 0);
+  app.classList.toggle('spin', !!fault && now.me?.station === 'kapteeni');
 }
 
 /** The space cat sits on this phone's buttons. */
@@ -601,8 +711,10 @@ function setUpPage() {
     sfx('click', { pitch: 1 + Math.random() }); // every console beeps a bit differently
     if (b.dataset.pick) pick(b.dataset.pick);
     if (b.dataset.send) send(b.dataset.send, b.dataset.value === undefined ? undefined : Number(b.dataset.value));
+    if (b.dataset.send === 'virta') engineering.reset();
+    if (b.dataset.send === 'kannusta') counselor.reset();
     if (b.dataset.throttle) helm.setThrottle(Number(b.dataset.throttle));
-    if (b.dataset.energy) send('energia', b.dataset.energy);
+    if (b.dataset.reactor) (engineering as unknown as { nudge: (w: number) => void }).nudge(Number(b.dataset.reactor));
     if (b.dataset.go === 'vaihda') standUp();
     if (b.dataset.go === 'liity') location.search = '?liity';
   });
@@ -710,12 +822,25 @@ const CSS = `
   .radar .dot.mohko { font-size: 54px; }
   .radar .dot.far { opacity: 0.4; }
   .hint { text-align: center; font-size: 18px; color: ${lcars[4]}; text-transform: uppercase; }
-  .energy { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-  .energy .name { width: 100%; font-size: 18px; text-transform: uppercase; }
-  .energy button { width: 52px; height: 52px; padding: 0; font-size: 28px; }
-  .pips { flex: 1; display: flex; gap: 4px; }
-  .pips i { flex: 1; height: 26px; border-radius: 6px; background: #222; }
-  .pips i.full { background: ${lcars[0]}; }
+  .reactor { position: relative; height: 44px; border-radius: 22px; background: #401010; overflow: hidden; }
+  .reactor .zone { position: absolute; left: 35%; width: 30%; top: 0; bottom: 0; background: #1f6d2a; }
+  .reactor.ok .zone { background: #3dcc55; }
+  .reactor .needle { position: absolute; top: 0; bottom: 0; width: 8px; margin-left: -4px; background: #fff; border-radius: 4px; }
+  .charge { height: 18px; border-radius: 9px; background: #222; overflow: hidden; }
+  .charge i { display: block; height: 100%; width: 0%; background: #ffee55; }
+  .crew { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .crew .hint { grid-column: 1 / -1; }
+  .pick { font-size: 15px; padding: 10px 6px; border-radius: 14px; }
+  .request { background: #111; border: 3px solid ${lcars[1]}; border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+    font-size: 18px; text-transform: uppercase; animation: wobble 0.5s infinite alternate; }
+  #vika .broken { background: #ff3333; color: #fff; border-radius: 16px; padding: 10px 14px; font-weight: bold; text-transform: uppercase; }
+  #vika .broken small { color: #fff; opacity: 0.9; }
+  #vika .boosted { background: #ffee55; color: #000; border-radius: 16px; padding: 10px 14px; font-weight: bold; margin-top: 6px; }
+  body.boost .phone { box-shadow: inset 0 0 40px 10px #ffee55; }
+  .phone.spin { animation: spin 3s infinite ease-in-out alternate; }
+  @keyframes spin { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+  .radar.blurry .dot { filter: blur(6px); }
+  .radar .dot.weak::after { content: '🎯'; position: absolute; right: -6px; top: -6px; font-size: 22px; }
   .faults { display: flex; flex-direction: column; gap: 8px; }
   .fault { background: #ff5c5c; text-align: left; border-radius: 16px; animation: wobble 0.4s infinite alternate; }
   @keyframes wobble { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }

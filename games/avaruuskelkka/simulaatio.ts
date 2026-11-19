@@ -3,7 +3,7 @@
 // Also the shapes of everything stored in Firebase (shared with asemat.ts).
 
 import { online } from '@kit/firebase';
-import { config, type Waypoint } from './config';
+import { config, type RequestKind, type Waypoint } from './config';
 
 /** aula = waiting for the crew, matka = flying, perilla = arrived. */
 export type Phase = 'aula' | 'matka' | 'perilla';
@@ -49,29 +49,34 @@ export interface Threat {
   /** Pirate: where it is around the ship (degrees). */
   orbit: number;
   leaving: boolean;
+  /** Tiede found its weak spot: lasers do double damage. */
+  weak: boolean;
 }
 
-/** Energy points of the three systems (Konehuone). */
-export interface Energy {
-  moottori: number;
-  kilvet: number;
-  aseet: number;
-}
-
-/** Something broken on the ship. name = index to config.faults.names. */
+/** A broken console: station = index of config.stations. */
 export interface Fault {
   id: number;
-  name: number;
+  station: number;
   /** Taps left to fix it. */
   left: number;
 }
 
-/** A threat on the Tactical radar: distance from the ship. */
+/** Something waiting for the Captain's "Tehkää niin!". from = index of config.stations. */
+export interface CaptainRequest {
+  id: number;
+  from: number;
+  what: RequestKind;
+  /** Seconds left before it expires. */
+  time: number;
+}
+
+/** A threat on the Tactical radar: distance from the ship. w = weak spot found. */
 export interface RadarDot {
   id: number;
   k: ThreatKind;
   dx: number;
   dy: number;
+  w?: boolean;
 }
 
 /** What the phones see, written by the main screen ~5 times a second: rooms/<code>/state */
@@ -89,9 +94,14 @@ export interface ShipState {
   warping: boolean;
   /** Seconds since the trip started. */
   time: number;
-  energy: Energy;
   /** Firebase drops empty lists, so these may be missing on the phones. */
   faults?: Fault[];
+  requests?: CaptainRequest[];
+  /** The Captain said "aseet vapaiksi": Taktiikka may shoot the pirate. */
+  weaponsFree: boolean;
+  /** Seconds of boost left for each station (index of config.stations), and who sent it: 1 = ⚡, 2 = 💖. */
+  boosts?: number[];
+  boostBy?: number[];
   radar?: RadarDot[];
   /** Seconds the shields stay up (0 = down). */
   shield: number;
@@ -196,6 +206,23 @@ export function place(s: ShipState, i: number): Waypoint {
   return w.alt && s.alts?.includes(i) ? w.alt : w;
 }
 
+/** The broken console of a station, if any. */
+export function faultAt(s: ShipState, station: string) {
+  const i = stationIndex(station);
+  return s.faults?.find((f) => f.station === i);
+}
+
+/** Is this station boosted right now? */
+export function boosted(s: ShipState, station: string) {
+  return (s.boosts?.[stationIndex(station)] ?? 0) > 0;
+}
+
+/** What breaks at a station (config.faults.byStation). */
+export function faultText(station: number) {
+  const id = config.stations[station]?.id ?? '';
+  return config.faults.byStation[id] ?? config.faults.other;
+}
+
 /** Runko (hull) in percent: every fault takes some off, but it never reaches 0. */
 export function hull(s: ShipState) {
   return Math.max(10, 100 - (s.faults?.length ?? 0) * 15);
@@ -207,7 +234,8 @@ function startState(): ShipState {
   const heading = (Math.atan2(next.y - home.y, next.x - home.x) * 180) / Math.PI;
   return {
     x: home.x, y: home.y, heading, speed: 0, throttle: 0, target: 1, warpCharge: 0, warping: false, time: 0,
-    energy: { ...config.energy.start }, faults: [], radar: [], shield: 0, shieldCharge: 0, reload: 0,
+    faults: [], requests: [], weaponsFree: false, boosts: config.stations.map(() => 0), boostBy: config.stations.map(() => 0),
+    radar: [], shield: 0, shieldCharge: 0, reload: 0,
     alts: [], choice: -1, choiceTime: 0, alert: 0, alertCharge: 0, fog: false, fogClear: 0, scanCharge: 0,
     secrets: config.secrets.map(() => 0), stars: 0,
     morale: config.morale.start, singing: false, call: null, cat: -1, tractorCharge: 0, ping: null,
@@ -256,6 +284,12 @@ export interface SimEvents {
   tractor: (i: number) => void;
   /** The whale started singing. */
   song: () => void;
+  /** Someone asks the Captain for permission. */
+  request: (r: CaptainRequest) => void;
+  /** The Captain answered: true = "Tehkää niin!", false = no, null = no answer in time. */
+  requestDone: (r: CaptainRequest, ok: boolean | null) => void;
+  /** A station got a boost: ⚡ from Konehuone or 💖 from Neuvonantaja. */
+  boost: (station: number, by: 1 | 2) => void;
 }
 
 /** The host side of a room: runs the ship and reacts to the phones. */
@@ -280,6 +314,11 @@ export class Simulaatio {
   private visitedAliens = new Set<number>();
   private catTimer = config.cat.firstAfter;
   private catAge = 0;
+  /** Neuvonantaja's good heart taps since the last 💖, and when Konehuone last sent ⚡. */
+  private heartBeats = 0;
+  private lastPower = -99;
+  /** After a "no" or no answer, the same thing can't be asked again for a few seconds. */
+  private askAgainAt: Partial<Record<RequestKind, number>> = {};
   private nextId = 1;
   private p: ReturnType<typeof paths>;
   /** The edges of space: a bit outside the route. */
@@ -309,7 +348,12 @@ export class Simulaatio {
   private async resume() {
     const [phase, saved] = await Promise.all([online.read<Phase>(this.p.phase), online.read<ShipState>(this.p.state)]);
     if (phase !== 'matka' || !saved) return this.newTrip();
-    this.ship = { ...startState(), ...saved, faults: saved.faults ?? [], alts: saved.alts ?? [], radar: [], call: null };
+    const fresh = startState();
+    this.ship = {
+      ...fresh, ...saved, alts: saved.alts ?? [], radar: [], call: null, requests: [],
+      faults: (saved.faults ?? []).filter((f) => typeof f.station === 'number'), // older saves had other faults
+      boosts: fresh.boosts, boostBy: fresh.boostBy,
+    };
     // Aliens of places already passed don't call again
     config.route.forEach((_, i) => { if (i < this.ship.target) this.visitedAliens.add(i); });
     this.setPhase('matka');
@@ -331,6 +375,9 @@ export class Simulaatio {
     this.randomCallTimer = config.aliens.randomEvery;
     this.visitedAliens.clear();
     this.catTimer = config.cat.firstAfter;
+    this.heartBeats = 0;
+    this.lastPower = -99;
+    this.askAgainAt = {};
     online.write(this.p.state, this.ship);
     this.setPhase('aula');
   }
@@ -357,20 +404,27 @@ export class Simulaatio {
     if (this.catOn(c.station)) return; // the cat is sitting on the buttons!
     if (a === 'viestinta:vastaa') this.answer(Number(c.value));
     if (a === 'operaatiot:kissa') this.shooCat();
-    if (a === 'operaatiot:veto') this.tractorBeam();
+    if (a === 'operaatiot:veto') this.ask('veto', c.station);
+    if (a === 'kapteeni:hyvaksy') this.answerRequest(Number(c.value), true);
+    if (a === 'kapteeni:hylkaa') this.answerRequest(Number(c.value), false);
+    if (a === 'konehuone:virta') this.powerBoost(Number(c.value));
+    if (a === 'neuvonantaja:kannusta') this.cheerBoost(Number(c.value));
     if (a === 'operaatiot:tehtava') this.ping(Number(c.value));
-    if (a === 'neuvonantaja:rauhoita') this.cheer(config.morale.calm);
-    if (a === 'ohjaus:warp') this.warp();
+    if (a === 'neuvonantaja:rauhoita' && !faultAt(this.ship, 'neuvonantaja')) {
+      const double = boosted(this.ship, 'neuvonantaja') ? 2 : 1;
+      this.cheer(config.morale.calm * double);
+      this.heartBeats += double;
+    }
+    if (a === 'ohjaus:warp' && this.ship.warpCharge <= 0) this.ask('warp', c.station);
     if (a === 'taktiikka:ammu') this.zap(Number(c.value));
     if (a === 'taktiikka:kilvet') this.raiseShields();
-    if (a === 'konehuone:energia') this.moveEnergy(String(c.value));
-    if (a === 'konehuone:korjaa') this.repair(Number(c.value), this.ship.alert > 0 ? 2 : 1);
+    if (a === 'konehuone:korjaa') this.repair(Number(c.value), this.repairTaps());
     if (a === 'tiede:skannaa') this.scan();
     if (a === 'kapteeni:halytys') this.redAlert();
     if (a === 'kapteeni:reitti') this.chooseRoute(Number(c.value));
   }
 
-  warp() {
+  private warp() {
     if (this.ship.warpCharge > 0) return;
     this.warpLeft = config.helm.warpSeconds;
     this.ship.warpCharge = config.helm.warpSeconds + config.helm.warpCharge;
@@ -414,6 +468,7 @@ export class Simulaatio {
     if (this.manned('ohjaus')) {
       const helm = (this.inputs.ohjaus ?? {}) as Partial<HelmInput>;
       turn = this.catOn('ohjaus') ? 0 : Math.sign(helm.turn ?? 0);
+      if (faultAt(s, 'ohjaus')) turn = Math.min(turn, 0); // broken: only turns left
       // Until the Helm picks a speed, keep the old one
       if (helm.throttle !== undefined) s.throttle = Math.max(0, Math.min(config.helm.speeds.length - 1, Math.round(helm.throttle)));
     } else {
@@ -423,13 +478,14 @@ export class Simulaatio {
       turn = Math.abs(diff) < 3 ? 0 : Math.sign(diff);
       s.throttle = config.autopilot.helmThrottle;
     }
-    s.heading = (s.heading + turn * config.helm.turnSpeed * dt + 360) % 360;
+    const turnSpeed = config.helm.turnSpeed * (boosted(s, 'ohjaus') ? 1.6 : 1);
+    s.heading = (s.heading + turn * turnSpeed * dt + 360) % 360;
   }
 
-  /** How fast the ship can go now: engine energy speeds it up, faults slow it down. */
+  /** How fast the ship can go now: a boosted Helm speeds it up, faults and a sleepy crew slow it down. */
   speedFactor() {
     const s = this.ship;
-    const engines = 1 + (s.energy.moottori - 2) * config.energy.enginePerPoint;
+    const engines = boosted(s, 'ohjaus') ? 1.25 : 1;
     const faults = Math.max(0.4, 1 - (s.faults?.length ?? 0) * config.faults.slowEach);
     const mood = 1 - config.morale.slowAtZero * (1 - s.morale / 100);
     return engines * faults * mood;
@@ -526,9 +582,14 @@ export class Simulaatio {
     if (s.scanCharge > 0) return;
     s.scanCharge = config.science.scanCharge;
     if (this.inFogArea()) s.fogClear = config.science.fogClear;
+    let radius = config.science.scanRadius;
+    if (faultAt(s, 'tiede')) radius /= 2; // broken: coughing scanner
+    if (boosted(s, 'tiede')) { radius *= 2; s.scanCharge = 0; }
+    // Weak spots of pirates nearby
+    for (const t of this.threats) if (t.kind === 'mohko' && towards(s, t.x, t.y).distance < radius) t.weak = true;
     const found: number[] = [];
     config.secrets.forEach((sec, i) => {
-      if (s.secrets[i] === 0 && towards(s, sec.x, sec.y).distance < config.science.scanRadius) {
+      if (s.secrets[i] === 0 && towards(s, sec.x, sec.y).distance < radius) {
         s.secrets[i] = 1;
         found.push(i);
       }
@@ -543,22 +604,78 @@ export class Simulaatio {
       if (s.secrets[i] !== 1) return;
       const size = config.secretLooks[sec.kind].size;
       if (towards(s, sec.x, sec.y).distance > size * 0.6 + 40) return;
-      s.secrets[i] = 2;
       if (sec.kind === 'kristalli') {
+        s.secrets[i] = 2;
         s.stars++;
         this.cheer(config.morale.crystal);
         this.on.crystal(i);
-      } else if (sec.exit) {
-        // WHOOSH! Out of the other end, and on to the next place from there
-        s.x = sec.exit.x;
-        s.y = sec.exit.y;
-        s.target = Math.min(config.route.length - 1, Math.max(s.target, sec.exit.target));
-        s.choice = -1;
-        this.threats = [];
-        this.on.wormhole(i);
-        this.legStarts();
+      } else {
+        this.ask('madonreika', 'ohjaus'); // jumping needs the Captain's order
       }
     });
+  }
+
+  /** WHOOSH! Out of the other end of the nearest found wormhole, and on to the next place from there. */
+  private jumpThrough() {
+    const s = this.ship;
+    let best = -1;
+    config.secrets.forEach((sec, i) => {
+      if (sec.kind !== 'madonreika' || s.secrets[i] !== 1 || !sec.exit) return;
+      const far = (j: number) => towards(s, config.secrets[j].x, config.secrets[j].y).distance;
+      if (best < 0 || far(i) < far(best)) best = i;
+    });
+    const exit = config.secrets[best]?.exit;
+    if (!exit) return;
+    s.secrets[best] = 2;
+    s.x = exit.x;
+    s.y = exit.y;
+    s.target = Math.min(config.route.length - 1, Math.max(s.target, exit.target));
+    s.choice = -1;
+    this.threats = [];
+    this.on.wormhole(best);
+    this.legStarts();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Kapteenin käskyt: requests that need "Tehkää niin!"
+  // ---------------------------------------------------------------------------
+
+  /** A station asks the Captain. Only one request of each kind at a time. */
+  private ask(what: RequestKind, station: string) {
+    const s = this.ship;
+    if (s.requests?.some((r) => r.what === what) || s.time < (this.askAgainAt[what] ?? 0)) return;
+    if (what === 'veto' && this.tractorTarget() < 0) return; // nothing to pull
+    const r: CaptainRequest = { id: this.nextId++, from: stationIndex(station), what, time: config.captain.requestSeconds };
+    s.requests = [...(s.requests ?? []), r];
+    this.on.request(r);
+  }
+
+  private answerRequest(id: number, ok: boolean) {
+    const s = this.ship;
+    const r = s.requests?.find((x) => x.id === id);
+    if (!r) return;
+    s.requests = s.requests!.filter((x) => x !== r);
+    this.on.requestDone(r, ok);
+    if (!ok) { this.askAgainAt[r.what] = s.time + 4; return; }
+    if (r.what === 'warp') this.warp();
+    if (r.what === 'madonreika') this.jumpThrough();
+    if (r.what === 'veto') this.tractorBeam();
+    if (r.what === 'aseet') s.weaponsFree = true;
+  }
+
+  /** Requests expire; with nobody at Kapteeni the autopilot says yes quickly. */
+  private tickRequests(dt: number) {
+    const s = this.ship;
+    for (const r of [...(s.requests ?? [])]) {
+      r.time -= dt;
+      const waited = config.captain.requestSeconds - r.time;
+      if (!this.manned('kapteeni') && waited >= config.captain.autoApprove) this.answerRequest(r.id, true);
+      else if (r.time <= 0) {
+        s.requests = s.requests!.filter((x) => x !== r);
+        this.askAgainAt[r.what] = s.time + 4;
+        this.on.requestDone(r, null);
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -566,7 +683,7 @@ export class Simulaatio {
   // ---------------------------------------------------------------------------
 
   private add(kind: ThreatKind, x: number, y: number, vx: number, vy: number, hp = 1): Threat {
-    const t: Threat = { id: this.nextId++, kind, x, y, vx, vy, hp, age: 0, timer: 2, orbit: 0, leaving: false };
+    const t: Threat = { id: this.nextId++, kind, x, y, vx, vy, hp, age: 0, timer: 2, orbit: 0, leaving: false, weak: false };
     this.threats.push(t);
     return t;
   }
@@ -654,10 +771,11 @@ export class Simulaatio {
     const s = this.ship;
     const blocked = s.shield > 0;
     if (!blocked) this.cheer(-config.morale.hit);
-    if (!blocked && (s.faults?.length ?? 0) < config.faults.max) {
-      s.faults = [...(s.faults ?? []), {
-        id: this.nextId++, name: Math.floor(Math.random() * config.faults.names.length), left: config.faults.tapsToFix,
-      }];
+    // Something breaks: one station's console that isn't broken yet
+    const working = config.stations.map((_, i) => i).filter((i) => !s.faults?.some((f) => f.station === i));
+    if (!blocked && working.length) {
+      const station = working[Math.floor(Math.random() * working.length)];
+      s.faults = [...(s.faults ?? []), { id: this.nextId++, station, left: config.faults.tapsToFix }];
     }
     this.on.hit(t.kind, blocked);
   }
@@ -670,9 +788,13 @@ export class Simulaatio {
     const s = this.ship;
     const t = this.threats.find((x) => x.id === id);
     if (!t || s.reload > 0 || towards(s, t.x, t.y).distance > config.tactical.range) return;
-    s.reload = Math.max(0.3, config.tactical.reload - config.tactical.reloadPerPoint * s.energy.aseet);
+    // The pirate may only be shot after the Captain says "aseet vapaiksi"
+    if (t.kind === 'mohko' && !s.weaponsFree) { this.ask('aseet', 'taktiikka'); return; }
+    s.reload = config.tactical.reload;
+    if (faultAt(s, 'taktiikka')) s.reload *= 2; // broken: slow laser
+    if (boosted(s, 'taktiikka')) s.reload /= 2;
     if (s.alert > 0) s.reload /= 2; // red alert: everyone is twice as fast
-    t.hp--;
+    t.hp -= 1 + (t.weak ? 1 : 0) + (boosted(s, 'taktiikka') ? 1 : 0);
     this.on.zap(t);
     if (t.hp <= 0) {
       this.remove(t);
@@ -683,7 +805,7 @@ export class Simulaatio {
   private raiseShields() {
     const s = this.ship;
     if (s.shieldCharge > 0) return;
-    s.shield = config.tactical.shieldSeconds + config.tactical.shieldPerPoint * s.energy.kilvet;
+    s.shield = config.tactical.shieldSeconds;
     s.shieldCharge = s.shield + config.tactical.shieldCharge;
     this.on.shields();
   }
@@ -698,6 +820,9 @@ export class Simulaatio {
     s.scanCharge = Math.max(0, s.scanCharge - dt);
     s.fogClear = Math.max(0, s.fogClear - dt);
     s.tractorCharge = Math.max(0, s.tractorCharge - dt);
+    s.boosts = s.boosts!.map((b) => Math.max(0, b - dt));
+    this.tickRequests(dt);
+    if (!this.threats.some((t) => t.kind === 'mohko')) s.weaponsFree = false; // a new pirate needs a new order
     s.fog = this.inFogArea() && s.fogClear <= 0;
     if (s.choice >= 0) {
       // Nobody at the Captain's chair: the autopilot takes the first route quickly
@@ -708,17 +833,46 @@ export class Simulaatio {
   }
 
   // ---------------------------------------------------------------------------
-  // Konehuone: energy and repairs
+  // Konehuone: repairs and ⚡ boosts. Neuvonantaja: 💖 boosts
   // ---------------------------------------------------------------------------
 
-  /** value is e.g. 'moottori_plus' or 'aseet_miinus'. */
-  private moveEnergy(value: string) {
-    const [system, way] = value.split('_') as [keyof Energy, string];
-    const e = this.ship.energy;
-    if (!(system in e)) return;
-    const used = e.moottori + e.kilvet + e.aseet;
-    if (way === 'plus' && used < config.energy.total && e[system] < config.energy.max) e[system]++;
-    if (way === 'miinus' && e[system] > 0) e[system]--;
+  /** How much one repair tap counts: less with a lost wrench, more when boosted or on red alert. */
+  private repairTaps() {
+    const s = this.ship;
+    let taps = 1;
+    if (faultAt(s, 'konehuone')) taps /= 2;
+    if (boosted(s, 'konehuone')) taps *= 2;
+    if (s.alert > 0) taps *= 2;
+    return taps;
+  }
+
+  /** ⚡ from Konehuone to another station (it charges in the reactor game). */
+  private powerBoost(station: number) {
+    const s = this.ship;
+    if (!config.stations[station] || config.stations[station].id === 'konehuone') return;
+    if (s.time - this.lastPower < config.boosts.power.chargeSeconds) return;
+    this.lastPower = s.time;
+    this.giveBoost(station, config.boosts.power.seconds, 1);
+  }
+
+  /** 💖 from Neuvonantaja to a crewmate, after enough good heart taps. */
+  private cheerBoost(station: number) {
+    if (!config.stations[station] || this.heartBeats < config.boosts.cheer.beats) return;
+    this.heartBeats = 0;
+    this.cheer(config.boosts.cheer.morale);
+    this.giveBoost(station, config.boosts.cheer.seconds, 2);
+  }
+
+  private giveBoost(station: number, seconds: number, by: 1 | 2) {
+    const s = this.ship;
+    s.boosts![station] = Math.max(s.boosts![station] ?? 0, seconds);
+    s.boostBy![station] = by;
+    const id = config.stations[station].id;
+    // Some boosts work right away
+    if (id === 'kapteeni') s.alertCharge = 0;
+    if (id === 'tiede') s.scanCharge = 0;
+    if (id === 'viestinta' && s.call) s.call.time += 10;
+    this.on.boost(station, by);
   }
 
   private repair(id: number, taps: number) {
@@ -839,15 +993,22 @@ export class Simulaatio {
   }
 
   /** Pulls the nearest found crystal to the ship. */
-  private tractorBeam() {
+  /** The nearest found crystal the tractor beam can reach (-1 = none). */
+  tractorTarget() {
     const s = this.ship;
-    if (s.tractorCharge > 0) return;
+    if (s.tractorCharge > 0) return -1;
     let best = -1;
-    let bestDistance = config.ops.tractorRange;
+    let bestDistance = config.ops.tractorRange * (boosted(s, 'operaatiot') ? 2 : 1);
     config.secrets.forEach((sec, i) => {
       const d = towards(s, sec.x, sec.y).distance;
       if (sec.kind === 'kristalli' && s.secrets[i] === 1 && d < bestDistance) { best = i; bestDistance = d; }
     });
+    return best;
+  }
+
+  private tractorBeam() {
+    const s = this.ship;
+    const best = this.tractorTarget();
     if (best < 0) return;
     s.tractorCharge = config.ops.tractorCharge;
     s.secrets[best] = 2;
@@ -907,7 +1068,7 @@ export class Simulaatio {
 function roundState(s: ShipState, threats: Threat[]): ShipState {
   const near = config.tactical.range * 1.4;
   const radar = threats
-    .map((t) => ({ id: t.id, k: t.kind, dx: Math.round(t.x - s.x), dy: Math.round(t.y - s.y) }))
+    .map((t) => ({ id: t.id, k: t.kind, dx: Math.round(t.x - s.x), dy: Math.round(t.y - s.y), w: t.weak }))
     .filter((t) => Math.hypot(t.dx, t.dy) < near);
   return {
     ...s,
@@ -917,6 +1078,8 @@ function roundState(s: ShipState, threats: Threat[]): ShipState {
     choiceTime: Math.ceil(s.choiceTime), alert: Math.ceil(s.alert), alertCharge: Math.ceil(s.alertCharge),
     fogClear: Math.ceil(s.fogClear), scanCharge: Math.ceil(s.scanCharge), secrets: [...s.secrets],
     morale: Math.round(s.morale), tractorCharge: Math.ceil(s.tractorCharge),
+    requests: (s.requests ?? []).map((r) => ({ ...r, time: Math.ceil(r.time) })),
+    boosts: s.boosts!.map((b) => Math.ceil(b)),
     call: s.call ? { ...s.call, time: Math.ceil(s.call.time) } : null,
     radar,
   };

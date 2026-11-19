@@ -42,6 +42,9 @@ export interface AlienMessage {
   wrong: [string, string];
 }
 
+/** Things that need the Captain's permission. */
+export type RequestKind = 'warp' | 'madonreika' | 'veto' | 'aseet';
+
 export interface SecretDef {
   /** madonreika = wormhole shortcut, kristalli = bonus crystal */
   kind: 'madonreika' | 'kristalli';
@@ -111,7 +114,7 @@ export const config = {
     /** Kivet: a new rock every this many seconds (fieldEvery near a place with rocks: true). */
     rock: { emoji: '🪨', every: 5, fieldEvery: 1.4, speed: 80, size: 95 },
     /** Möhköttäjä: a silly space pirate that circles the ship and throws pies. */
-    pirate: { name: 'Möhköttäjä', emoji: '🛸', hp: 3, throwsEvery: 3, leavesAfter: 45, size: 140 },
+    pirate: { name: 'Möhköttäjä', emoji: '🛸', hp: 4, throwsEvery: 3, leavesAfter: 45, size: 140 },
     /** Avaruuspiirakka: what the pirate throws. PLÖRTS! */
     pie: { emoji: '🥧', speed: 280, size: 70 },
   },
@@ -120,33 +123,51 @@ export const config = {
   tactical: {
     /** How far the laser reaches (the circle on the radar). */
     range: 700,
-    /** Seconds between laser shots: reload − reloadPerPoint × weapon energy. */
-    reload: 1.6,
-    reloadPerPoint: 0.3,
-    /** Seconds the shields stay up: shieldSeconds + shieldPerPoint × shield energy. */
-    shieldSeconds: 2,
-    shieldPerPoint: 1.5,
+    /** Seconds between laser shots. */
+    reload: 1.2,
+    /** Seconds the shields stay up. */
+    shieldSeconds: 5,
     /** Seconds the shields need to charge before they can go up again. */
     shieldCharge: 6,
   },
 
-  /** Konehuone – energy and repairs. */
-  energy: {
-    /** Energy points to share between moottori, kilvet and aseet. */
-    total: 6,
-    /** Most points one system can have. */
-    max: 4,
-    start: { moottori: 2, kilvet: 2, aseet: 2 },
-    /** Each engine point above 2 adds this much speed (0.15 = 15 %). */
-    enginePerPoint: 0.15,
-  },
-  /** Viat – every hit without shields breaks something. Each one slows the ship a bit. */
+  /** Viat – a hit without shields breaks one station's console until Konehuone fixes it.
+   *  Each fault also slows the ship a bit. What breaks at each station (the effect is in the code): */
   faults: {
     tapsToFix: 3,
     /** Speed lost per fault (0.1 = 10 %). */
     slowEach: 0.1,
-    max: 6,
-    names: ['💨 Moottori pörisee', '☕ Kahvinkeitin', '🚽 Vessa tulvii', '💡 Valot vilkkuu', '🌀 Tuuletin', '🧦 Sukka putkessa'],
+    byStation: {
+      kapteeni: '🌀 Kapteenin tuoli pyörii',
+      ohjaus: '🕹️ Ohjaus jumissa – kääntyy vain vasemmalle',
+      taktiikka: '📡 Tutka sumea ja laser hidas',
+      tiede: '🔭 Skanneri yskii – kantaa puolet',
+      operaatiot: '📢 Varoitukset sekaisin',
+      viestinta: '👽 Viesti pätkii',
+      konehuone: '🔧 Jakoavain hukassa – korjaus hitaampaa',
+      neuvonantaja: '💔 Sydän sekaisin – napautukset eivät auta',
+    } as Record<string, string>,
+    /** For stations not in the list above (e.g. a new station the kids added). */
+    other: '💥 Konsoli kipinöi',
+  },
+
+  /** Tehostukset – crew members boost each other's stations for a few seconds. */
+  boosts: {
+    /** Konehuone's ⚡: seconds in the green zone to charge it, and how long the boost lasts. */
+    power: { chargeSeconds: 6, seconds: 10 },
+    /** Neuvonantaja's 💖: good heart taps to charge it, how long the boost lasts, mood it adds. */
+    cheer: { beats: 5, seconds: 6, morale: 5 },
+    /** What a boost does at each station (shown on the boosted phone). */
+    texts: {
+      kapteeni: 'Punainen hälytys latautuu heti!',
+      ohjaus: 'Kääntyy ja lentää nopeammin!',
+      taktiikka: 'Laser ampuu kaksi kertaa nopeammin ja kovempaa!',
+      tiede: 'Skanneri latautuu heti ja kantaa kaksi kertaa kauemmas!',
+      operaatiot: 'Vetosäde kantaa kaksi kertaa kauemmas!',
+      viestinta: 'Lisää aikaa – ja yksi väärä vastaus katoaa!',
+      konehuone: 'Korjausnapautukset tuplana!',
+      neuvonantaja: 'Sydännapautukset tuplana!',
+    } as Record<string, string>,
   },
 
   /** Tiede – scanning finds hidden things and clears fog. */
@@ -183,6 +204,17 @@ export const config = {
     alertCharge: 30,
     /** Seconds the Captain has to choose a route (then the first one is taken). */
     choiceSeconds: 15,
+    /** Requests waiting for "Tehkää niin!": seconds before they expire (then ask again). */
+    requestSeconds: 15,
+    /** With nobody at Kapteeni, the autopilot approves after this many seconds. */
+    autoApprove: 3,
+    /** What needs the Captain's permission. */
+    requests: {
+      warp: '✨ WARP',
+      madonreika: '🌀 Hyppy madonreiän läpi',
+      veto: '🧲 Vetosäde',
+      aseet: '🔴 Lupa ampua Möhköttäjää',
+    } as Record<RequestKind, string>,
   },
 
   /** Mieliala – the crew's mood, 0–100. Low mood slows everything a bit (the game can't be lost). */

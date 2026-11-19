@@ -126,6 +126,19 @@ class Paanaytto extends Phaser.Scene {
       cat: (i) => this.catNews(i),
       tractor: (i) => this.tractor(i),
       song: () => { sfx('roar', { pitch: 0.5 }); this.banner('Avaruusvalas laulaa… zZz 🐋', lcars[2]); },
+      request: (r) => {
+        sfx('click', { pitch: 2 });
+        const st = config.stations[r.from];
+        this.banner(`${st?.emoji ?? ''} ${st?.name ?? ''} pyytää: ${config.captain.requests[r.what]}`, lcars[1]);
+      },
+      requestDone: (r, ok) => {
+        if (ok === true) { sfx('powerup', { pitch: 1.2 }); this.banner('Kapteeni: TEHKÄÄ NIIN!', lcars[0]); }
+        if (ok === false) { sfx('bounce', { pitch: 0.5 }); this.banner('Kapteeni: EI!', '#ff5c5c'); }
+      },
+      boost: (i, by) => {
+        sfx('powerup', { pitch: 2 });
+        this.banner(`${by === 1 ? '⚡ Virtaa' : '💖 Kannustusta'}: ${config.stations[i].name}!`, by === 1 ? '#ffee55' : '#ff8fd0');
+      },
     });
     this.makeStars();
     this.makeSpace();
@@ -311,7 +324,10 @@ class Paanaytto extends Phaser.Scene {
       if (!live.has(id)) { img.destroy(); this.threatSprites.delete(id); }
     }
     this.pirateLabel.setVisible(!!pirate);
-    if (pirate) this.pirateLabel.setPosition(pirate.x, pirate.y - 100).setText(`${config.danger.pirate.name} ${'❤️'.repeat(pirate.hp)}`);
+    if (pirate) {
+      const weak = pirate.weak ? ' 🎯' : '';
+      this.pirateLabel.setPosition(pirate.x, pirate.y - 100).setText(`${config.danger.pirate.name} ${'❤️'.repeat(Math.max(0, pirate.hp))}${weak}`);
+    }
   }
 
   private drawShipFx() {
@@ -588,7 +604,8 @@ class Paanaytto extends Phaser.Scene {
   private banner(text: string, fill = lcars[0]) {
     if (this.lastBanner) { this.tweens.killTweensOf(this.lastBanner); this.lastBanner.destroy(); } // one message at a time
     const t = label(this, VS.x + VS.w / 2, VS.y + 120, text, 56, fill).setOrigin(0.5).setScrollFactor(0).setDepth(UI).setScale(0.2);
-    this.tweens.add({ targets: t, scale: 1, duration: 350, ease: 'Back.out' });
+    const fit = Math.min(1, (VS.w - 60) / t.width); // long messages get smaller, never cut off
+    this.tweens.add({ targets: t, scale: fit, duration: 350, ease: 'Back.out' });
     this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 600, onComplete: () => t.destroy() });
     this.lastBanner = t;
   }
