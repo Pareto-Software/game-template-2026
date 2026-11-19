@@ -33,13 +33,12 @@ export interface Waypoint {
   song?: boolean;
 }
 
-export interface AlienMessage {
-  /** What the aliens say, in emoji. */
-  ask: string;
-  /** The friendly answer. */
-  right: string;
-  /** Two silly wrong answers. */
-  wrong: [string, string];
+export interface AlienMood {
+  /** How the aliens look, and the word Neuvonantaja reads out (e.g. "surullisia" = sad). */
+  face: string;
+  name: string;
+  /** The answer that is right when the aliens feel like this. */
+  answer: string;
 }
 
 /** Things that need the Captain's permission. */
@@ -251,14 +250,28 @@ export const config = {
     /** A friendly answer gives morale and a crystal; a rude one makes them throw this many pies. */
     friendMorale: 15,
     angryPies: 2,
-    messages: [
-      { ask: '👋🙂', right: '👋😄', wrong: ['😡👊', '🙈💤'] },
-      { ask: '🍕❓', right: '🍕👍', wrong: ['🧦👎', '🌋😱'] },
-      { ask: '🎵🎶', right: '💃🕺', wrong: ['🙉🛑', '🧹😴'] },
-      { ask: '🎁❓', right: '🙏💖', wrong: ['🗑️😝', '🦷😬'] },
-      { ask: '😢', right: '🤗💖', wrong: ['😂👉', '🥱'] },
-      { ask: '🐈❓', right: '🐈😻', wrong: ['🐕🚫', '🥒😾'] },
-    ] as AlienMessage[],
+    /** What the aliens say (just for fun – the right answer depends on their mood). */
+    messages: ['👋❓', '📡❓', '🍕❓', '🎵🎶', '🛸❓', '🎁❓', '🐈❓'],
+    /** Their mood: only Neuvonantaja sees it, so Viestintä has to ask. 3 moods are offered as answers. */
+    moods: [
+      { face: '😢', name: 'surullisia', answer: '🤗💖' },
+      { face: '😴', name: 'unisia', answer: '🤫💤' },
+      { face: '🥳', name: 'juhlatuulella', answer: '🎉💃' },
+      { face: '😡', name: 'kiukkuisia', answer: '🍪🙏' },
+      { face: '🤔', name: 'uteliaita', answer: '👋😄' },
+      { face: '🤢', name: 'pahoinvoivia', answer: '🍵🛋️' },
+    ] as AlienMood[],
+  },
+
+  /** Ennakkovaroitukset – rock showers and pirates are seen early, only on Operaatiot's phone.
+   *  Operaatiot forwards them: Taktiikka's shields then go up by themselves, Ohjaus sees where to dodge. */
+  warnings: {
+    /** A rock shower every this many seconds (the first after firstAfter), with this many rocks. */
+    showerEvery: 25,
+    firstAfter: 15,
+    rocks: 5,
+    /** Seconds between the warning and the rocks arriving. */
+    lead: 8,
   },
 
   /** Avaruuskissa – sits on a console and blocks it until Operaatiot lures it away. */
@@ -280,8 +293,9 @@ export const config = {
     /** Viestintä's autopilot answers after this many seconds, right this often (0.7 = 70 %). */
     commsSeconds: 5,
     commsRight: 0.7,
-    /** Operaatiot's autopilot lures the cat away after this many seconds. */
+    /** Operaatiot's autopilot lures the cat away after this many seconds, and forwards warnings after this many. */
     catSeconds: 10,
+    warnSeconds: 2,
     /** Neuvonantaja's autopilot adds this much mood every second. */
     moralePerSecond: 1,
   },

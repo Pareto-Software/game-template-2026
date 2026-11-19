@@ -38,15 +38,18 @@ Everything in this game lives in these files; don't create new files.
 | Rock field somewhere | `rocks: true` on a place in `config.route` |
 | Pirate on the way to a place | `pirate: true` on that place; looks and toughness: `config.danger.pirate` |
 | Pirate throws something else | `config.danger.pie.emoji` |
-| Lasers reach further / shoot faster | `config.tactical.range`, `.reload`, `.reloadPerPoint` |
-| Longer shields | `config.tactical.shieldSeconds`, `.shieldPerPoint`, `.shieldCharge` |
-| More energy points | `config.energy.total`, `.max`, `.start` |
-| Funny fault names, easier repairs | `config.faults.names`, `.tapsToFix` |
+| Lasers reach further / shoot faster | `config.tactical.range`, `.reload` |
+| Longer shields | `config.tactical.shieldSeconds`, `.shieldCharge` |
+| What breaks at a station, easier repairs | `config.faults.byStation` (text; the effect is in the code), `.tapsToFix` |
+| What needs the Captain's permission (texts), how long requests wait | `config.captain.requests`, `.requestSeconds`, `.autoApprove` |
+| Stronger / longer boosts | `config.boosts.power` (⚡ Konehuone), `config.boosts.cheer` (💖 Neuvonantaja), `.texts` |
+| Alien moods and their right answers | `config.aliens.moods` (`face`, `name`, `answer`); what they say: `config.aliens.messages` |
+| More / fewer rock showers, earlier warnings | `config.warnings` (`showerEvery`, `firstAfter`, `rocks`, `lead`) |
 | Autopilot zaps / repairs / scans faster | `config.autopilot.zapEvery`, `.fixEvery`, `.scanEvery` |
 | Fog somewhere | `fog: true` on a place in `config.route`; size and scan effect: `config.science` |
 | Captain chooses between two places | `alt: { name, emoji, x, y }` on a place in `config.route` |
 | More hidden crystals / wormholes | `config.secrets` (`kind`, `x`, `y`; wormhole: `exit: { x, y, target }`); looks: `config.secretLooks` |
-| Aliens somewhere / what they say | `aliens: true` on a place; `config.aliens.messages` (`ask`, `right`, two `wrong`, all emoji) |
+| Aliens somewhere | `aliens: true` on a place |
 | Aliens call more / less often | `config.aliens.randomEvery`, `.perVisit`, `.answerSeconds` |
 | Whale song somewhere | `song: true` on a place; how sleepy: `config.morale.songPerSecond`, `.songRadius` |
 | Mood goes up / down faster | `config.morale` (`hit`, `crystal`, `arrive`, `calm`, `slowAtZero`, `beat`) |
@@ -75,6 +78,22 @@ Safe to change without breaking the game (tested): up to 10 stations (the lobby
 shrinks the cards), fewer console colours (they repeat), removing or adding places on
 the route, different emoji and texts everywhere.
 
+## Crew cooperation (who needs whom)
+
+| Station | Keeps doing | Needs | Gives |
+| --- | --- | --- | --- |
+| Kapteeni | Answers requests ✅/❌, route choice, red alert | Requests from others | "Tehkää niin!" to WARP, wormhole, tractor beam, shooting the pirate |
+| Ohjaus | Steers | Captain (WARP, wormhole), Tiede in fog, Operaatiot's warnings | – |
+| Taktiikka | Zaps, shields | Captain (pirate), Tiede's 🎯 weak spots, Operaatiot's warnings | – |
+| Tiede | Scans | – | Fog directions, secrets, 🎯 weak spots |
+| Konehuone | Reactor needle ⚡, repairs | Broken stations shouting | ⚡ boosts, repairs |
+| Neuvonantaja | Heartbeat 💖 | – | 💖 boosts, the aliens' mood to Viestintä |
+| Viestintä | Answers alien calls | Neuvonantaja (the mood) | Crystals and mood from friendly aliens |
+| Operaatiot | Forwards early warnings, cat, tractor beam | Captain (tractor beam) | Warnings to Taktiikka/Ohjaus, pings |
+
+A hit breaks one station's console (`faultAt`), each with its own effect. With nobody at a
+partner station its part is automatic (autopilot), or its information shows on the other phone.
+
 ## How it fits together
 
 - Look: a goofy starship-bridge parody (see PLAN.md "Look & feel"): rounded console
@@ -84,11 +103,14 @@ the route, different emoji and texts everywhere.
 - Phone views live in `views` in `asemat.ts`: `html()` once, `live(ship)` on every state,
   `hold(name, down)` for hold-down buttons (`data-hold`). Every station now has its own view.
 - Danger: `spawnDangers` / `moveDangers` / `movePirate` / `hitShip` in `simulaatio.ts`;
-  Taktiikka → `zap` + `raiseShields`, Konehuone → `moveEnergy` + `repair`, empty stations → `autopilots`.
+  Taktiikka → `zap` + `raiseShields`, Konehuone → `repair`, empty stations → `autopilots`.
   The main screen draws them in `drawThreats`, `zap`, `pop`, `hit`, `splat` (`paanaytto.ts`).
 - Discovery: `scan` / `checkSecrets` / `inFogArea` (Tiede), `chooseRoute` / `redAlert` (Kapteeni) in
   `simulaatio.ts`. Use `place(s, i)` – not `config.route[i]` – for the place the crew is really flying to.
   Main screen: `scanPulse`, `wormhole`, `crystal`, `drawFogAndAlert`.
+- Cooperation: `ask` / `answerRequest` / `tickRequests` (Captain's orders), `hitShip` + `faultAt` (station faults),
+  `powerBoost` / `cheerBoost` / `giveBoost` + `boosted` (boosts), `warn` / `forward` / `tickWarnings` / `rockShower`
+  (early warnings) in `simulaatio.ts`. Phones: `faultBanner`, `forwardedWarnings`, the `engineering` reactor game.
 - People: `people` / `aliens` / `answer` / `shooCat` / `tractorBeam` / `ping` / `cheer` (mood) in `simulaatio.ts`.
   The cat blocks a station's commands (`catOn`). Phones: `comms`, `ops`, `counselor` views, `catOverlay`, `pinged`.
   Main screen: `drawPeople`, `alienCalls`, `alienAnswered`, `catNews`, `tractor`.

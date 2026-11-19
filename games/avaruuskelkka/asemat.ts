@@ -11,8 +11,8 @@ import { sfx } from '@kit/sound';
 import { config, type StationDef } from './config';
 import {
   paths, crewByStation, towards, angleDiff, stardate, hull, place, moodFace, callAnswers, stationIndex,
-  faultAt, faultText, boosted,
-  type Phase, type PlayerInfo, type ShipState, type HelmInput, type ThreatKind,
+  faultAt, faultText, boosted, sideText,
+  type Phase, type PlayerInfo, type ShipState, type HelmInput, type ThreatKind, type Warning,
 } from './simulaatio';
 
 const app = document.createElement('div');
@@ -144,6 +144,23 @@ interface StationView {
 
 const $ = (id: string) => document.getElementById(id);
 
+/** "⚠️ Kivisade" / "⚠️ Möhköttäjä tulossa". */
+function warningText(w: Warning) {
+  return w.kind === 'kivisade' ? '⚠️ Kivisade' : `⚠️ ${config.danger.pirate.name} tulossa`;
+}
+
+/** An arrow pointing where something comes from, seen from the ship (up = straight ahead). */
+function arrowFor(s: ShipState, dir: number) {
+  return `<span class="arrow" style="display:inline-block; transform: rotate(${angleDiff(dir, s.heading)}deg)">▲</span>`;
+}
+
+/** Warnings Operaatiot forwarded to this station. */
+function forwardedWarnings(s: ShipState, station: string) {
+  const mine = stationIndex(station);
+  return (s.warnings ?? []).filter((w) => w.sent?.includes(mine)).map((w) => `<div class="warning">${warningText(w)} ${Math.max(0, w.time)} s:
+    ${arrowFor(s, w.dir)} ${sideText(angleDiff(w.dir, s.heading))}<small>📡 Operaatiot varoitti${station === 'taktiikka' && w.kind === 'kivisade' ? ' – kilvet nousevat itsestään' : ''}</small></div>`).join('');
+}
+
 /** Is a request of this kind waiting for the Captain? */
 const waitingFor = (s: ShipState, what: string) => s.requests?.some((r) => r.what === what) ?? false;
 
@@ -162,6 +179,7 @@ const helm = (() => {
     html: () => `
       <div class="readout"><div class="compass"><span id="nuoli">▲</span></div>
         <div><b id="kohde"></b><span id="matka"></span><span id="nopeus"></span></div></div>
+      <div id="varo"></div>
       <div class="row">
         <button class="hold c3" data-hold="vasen">◀ Vasen</button>
         <button class="hold c3" data-hold="oikea">Oikea ▶</button>
@@ -175,6 +193,7 @@ const helm = (() => {
       $('nuoli')!.style.transform = s.fog ? 'none' : `rotate(${angleDiff(dir.angle, s.heading)}deg)`;
       $('nuoli')!.textContent = s.fog ? '?' : '▲';
       $('kohde')!.textContent = s.fog ? '🌫️ Sumua! Kysy Tieteeltä suunta' : `${t.emoji} ${t.name}`;
+      $('varo')!.innerHTML = forwardedWarnings(s, 'ohjaus');
       $('matka')!.textContent = s.fog ? '??? km' : `${Math.round(dir.distance)} km`;
       $('nopeus')!.textContent = s.warping ? 'WARP!!!' : `Nopeus ${s.speed}`;
       const warp = $('warp') as HTMLButtonElement;
@@ -345,6 +364,7 @@ const tactical: StationView = (() => {
   return {
     html: () => `
       <div class="radar" id="tutka"><div class="reach"></div><span class="me">${config.ship.emoji}</span></div>
+      <div id="varo"></div>
       <div class="hint" id="laser"></div>
       <button class="big c2" id="kilvet" data-send="kilvet">🛡️ Kilvet ylös!</button>`,
     live: (s) => {
@@ -368,6 +388,7 @@ const tactical: StationView = (() => {
       }
       radar.querySelectorAll<HTMLElement>('[data-zap]').forEach((d) => { if (!seen.has(d.dataset.zap!)) d.remove(); });
       radar.classList.toggle('blurry', !!faultAt(s, 'taktiikka'));
+      $('varo')!.innerHTML = forwardedWarnings(s, 'taktiikka');
       const pirate = (s.radar ?? []).some((t) => t.k === 'mohko');
       $('laser')!.textContent = s.reload > 0 ? 'Laser latautuu… 🔋'
         : pirate && waitingFor(s, 'aseet') ? '⏳ Odotetaan kapteenin lupaa ampua Möhköttäjää…'
@@ -451,13 +472,19 @@ const comms: StationView = (() => {
         shown = key;
         const a = config.aliens;
         // Broken: the message breaks up (every other emoji is ❓). Boosted: one wrong answer disappears.
-        const said = call ? a.messages[call.msg].ask : '';
+        const said = call ? a.messages[call.msg] : '';
         const emoji = [...new Intl.Segmenter().segment(said)].map((x) => x.segment);
         const ask = broken ? emoji.map((ch, i) => (i % 2 ? '❓' : ch)).join('') : said;
-        const hidden = call && helped ? call.order.indexOf(1) : -1;
+        const hidden = call && helped ? call.order.findIndex((m) => m !== call.mood) : -1;
+        // The mood is Neuvonantaja's secret – unless nobody is there
+        const counselorHere = crewByStation(now.players).neuvonantaja?.length > 0;
+        const mood = call ? a.moods[call.mood] : null;
+        const moodHint = !mood ? '' : counselorHere
+          ? '💖 Kysy Neuvonantajalta, miltä heistä tuntuu!'
+          : `He näyttävät ${mood.face} ${mood.name.toUpperCase()}`;
         $('puhelu')!.innerHTML = call
           ? `<div class="call"><span class="alien">${a.emoji}</span><span class="says">${ask}</span></div>
-             <div class="hint">${a.name} soittaa! Mikä on ystävällinen vastaus? <span id="aika"></span></div>
+             <div class="hint">${a.name} soittaa! <span id="aika"></span><br>${moodHint}</div>
              <div class="answers">${callAnswers(call).map((ans, i) => (i === hidden ? ''
                : `<button class="c${i + 1}" data-send="vastaa" data-value="${i}">${ans}</button>`)).join('')}</div>`
           : `<div class="info">Kuunnellaan avaruutta… 📡</div>`;
@@ -471,6 +498,28 @@ const comms: StationView = (() => {
 /** Operaatiot: what needs doing right now, the cat, the tractor beam. */
 const ops: StationView = (() => {
   let shown = '';
+  let shownWarnings = '';
+  const helm = stationIndex('ohjaus');
+  const tactical = stationIndex('taktiikka');
+  /** Warnings only Operaatiot sees, with buttons to forward them. */
+  const showWarnings = (s: ShipState) => {
+    const list = faultAt(s, 'operaatiot') ? [] : s.warnings ?? [];
+    const key = list.map((w) => `${w.id}:${(w.sent ?? []).join('.')}`).join(',');
+    if (key !== shownWarnings) {
+      shownWarnings = key;
+      $('varoitukset')!.innerHTML = list.map((w) => {
+        const button = (st: number, label: string) => (w.sent?.includes(st)
+          ? `<button class="sent" disabled>✓ ${label}</button>`
+          : `<button class="c${st % 10}" data-send="varoita" data-value="${w.id * 100 + st}">📢 ${label}</button>`);
+        return `<div class="warning"><div>${warningText(w)} <b data-varo="${w.id}"></b></div>
+          <div class="row">${button(tactical, '🛡️ Taktiikka')}${button(helm, '🕹️ Ohjaus')}</div></div>`;
+      }).join('');
+    }
+    for (const w of list) {
+      const t = document.querySelector(`[data-varo="${w.id}"]`);
+      if (t) t.innerHTML = `${Math.max(0, w.time)} s · ${arrowFor(s, w.dir)} ${sideText(angleDiff(w.dir, s.heading))}`;
+    }
+  };
   /** Jobs for the other stations, worked out from the ship's state. */
   const tasks = (s: ShipState) => {
     const list: [string, string][] = [];
@@ -489,12 +538,15 @@ const ops: StationView = (() => {
   return {
     html: () => {
       shown = '';
-      return `<div class="hint">Napauta tehtävää: asema saa hälytyksen 📢</div>
+      shownWarnings = '';
+      return `<div id="varoitukset"></div>
+      <div class="hint">Napauta tehtävää: asema saa hälytyksen 📢</div>
       <div class="tasks" id="tehtavat"></div>
       <div id="kissa"></div>
       <button class="big c6" id="veto" data-send="veto">🧲 Vetosäde</button>`;
     },
     live: (s) => {
+      showWarnings(s);
       const list = faultAt(s, 'operaatiot') ? [] : tasks(s);
       const key = list.map(([id, text]) => id + text).join('|') + `/${s.cat}`;
       if (key !== shown) {
@@ -540,6 +592,7 @@ const counselor: StationView & { beat: () => void; reset: () => void } = (() => 
       started = performance.now();
       setTimeout(showHearts);
       return `<div class="mood"><span id="naama"></span><div class="bar"><i id="mieli"></i></div></div>
+      <div class="moodcall" id="olio"></div>
       <div class="hint" id="laulu"></div>
       <button class="heart" data-beat="1" style="animation-duration: ${config.morale.beat}s">💖</button>
       <div class="hint" id="palaute">Napauta sydäntä kun se on isoimmillaan!</div>
@@ -551,6 +604,11 @@ const counselor: StationView & { beat: () => void; reset: () => void } = (() => 
       $('naama')!.textContent = moodFace(s.morale);
       $('mieli')!.style.width = `${s.morale}%`;
       $('laulu')!.textContent = s.singing ? '🐋 Avaruusvalas laulaa… pidä miehistö hereillä!' : `Mieliala ${s.morale} %`;
+      // Only this phone sees how the aliens feel: tell Viestintä!
+      const mood = s.call ? config.aliens.moods[s.call.mood] : null;
+      const text = mood ? `📞 ${config.aliens.name} soittavat! He ovat <b>${mood.face} ${mood.name}</b> – kerro Viestinnälle!` : '';
+      const box = $('olio')!;
+      if (box.innerHTML !== text) box.innerHTML = text;
     },
     /** Big heart = the start of each beat. A tap close to it counts. */
     beat: () => {
@@ -831,6 +889,14 @@ const CSS = `
   .crew { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .crew .hint { grid-column: 1 / -1; }
   .pick { font-size: 15px; padding: 10px 6px; border-radius: 14px; }
+  .warning { background: #3a2a00; border: 3px solid #ffcc00; border-radius: 16px; padding: 8px 12px; font-size: 18px;
+    text-transform: uppercase; display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+  .warning .arrow { color: #ffcc00; }
+  .warning button { font-size: 15px; padding: 10px 4px; }
+  .warning .sent { background: #333; color: #aaa; }
+  .moodcall { text-align: center; font-size: 20px; text-transform: uppercase; color: #fff; }
+  .moodcall:not(:empty) { background: #1f3d1a; border: 3px solid #7cff6b; border-radius: 16px; padding: 10px; animation: wobble 0.4s infinite alternate; }
+  .moodcall b { color: #7cff6b; font-size: 26px; }
   .request { background: #111; border: 3px solid ${lcars[1]}; border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
     font-size: 18px; text-transform: uppercase; animation: wobble 0.5s infinite alternate; }
   #vika .broken { background: #ff3333; color: #fff; border-radius: 16px; padding: 10px 14px; font-weight: bold; text-transform: uppercase; }

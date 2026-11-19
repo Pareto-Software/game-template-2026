@@ -510,7 +510,7 @@ class Paanaytto extends Phaser.Scene {
     const s = sim!.ship;
     const flying = sim!.phase === 'matka';
     this.alien.setVisible(flying && !!s.call);
-    if (s.call) this.alienSays.setText(config.aliens.messages[s.call.msg].ask);
+    if (s.call) this.alienSays.setText(config.aliens.messages[s.call.msg]);
     this.catSign.setVisible(flying && s.cat >= 0);
     // The whale's song: notes float around the ship
     if (flying && s.singing) {

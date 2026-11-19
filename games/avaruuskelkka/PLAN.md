@@ -9,7 +9,7 @@ flies the ship from the home base to a far-away destination planet. The game
 Made for the "Lapsi töihin" day: kids (8–13) change it by telling Claude their
 ideas, so almost everything they'd want to change lives in `config.ts`.
 
-Status: **phases 0–7 done**, published. Now: **phase 8 – crew cooperation** (section 10). Also left: the real-phone playtest (section 9). Open decisions are marked **❓**.
+Status: **phases 0–8 done** (8 = crew cooperation, section 10), published. Left: the real-phone playtest (section 9). Open decisions are marked **❓**.
 
 ---
 
@@ -241,7 +241,7 @@ the crew gives each other.
 **Rule for small crews:** when a partner station is empty, its part is automated (autopilot)
 or its information shows on the other phone itself – a trip with 2–3 kids still works.
 
-### 8a – orders, station faults, boosts
+### 8a – orders, station faults, boosts ✅
 - **Kapteenin käskyt (Captain's orders).** These need the Captain's ✅ "Tehkää niin!":
   WARP (Ohjaus), jumping through a found wormhole (asked when the ship flies into it),
   the tractor beam (Operaatiot), and "aseet vapaiksi" – shooting at a pirate (Taktiikka;
@@ -266,7 +266,7 @@ or its information shows on the other phone itself – a trip with 2–3 kids st
 - **Heikko kohta (weak spot).** A Tiede scan also finds weak spots on pirates within reach:
   🎯 on the main screen and radar; Taktiikka's lasers do double damage on them.
 
-### 8b – information split
+### 8b – information split ✅
 - **Avaruusolioiden mieliala (alien mood).** Every call has a mood (😢 sad, 😴 sleepy,
   🥳 party, 😡 grumpy, 🤔 curious, 🤢 queasy); the right answer depends on the mood
   (😢 → 🤗💖, 😴 → 🤫💤 …). Only **Neuvonantaja** sees the mood; Viestintä sees the message
