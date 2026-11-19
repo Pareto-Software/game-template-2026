@@ -302,7 +302,17 @@ export class Simulaatio {
       online.remove(`${this.p.commands}/${id}`);
       this.handle(c);
     });
-    this.newTrip();
+    this.resume();
+  }
+
+  /** After a reload of the main screen: carry on with the trip that was going on. */
+  private async resume() {
+    const [phase, saved] = await Promise.all([online.read<Phase>(this.p.phase), online.read<ShipState>(this.p.state)]);
+    if (phase !== 'matka' || !saved) return this.newTrip();
+    this.ship = { ...startState(), ...saved, faults: saved.faults ?? [], alts: saved.alts ?? [], radar: [], call: null };
+    // Aliens of places already passed don't call again
+    config.route.forEach((_, i) => { if (i < this.ship.target) this.visitedAliens.add(i); });
+    this.setPhase('matka');
   }
 
   setPhase(phase: Phase) {

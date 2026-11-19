@@ -49,6 +49,7 @@ Everything in this game lives in these files; don't create new files.
 | Mood goes up / down faster | `config.morale` (`hit`, `crystal`, `arrive`, `calm`, `slowAtZero`, `beat`) |
 | Cat comes more / less often | `config.cat.every`, `.firstAfter`, `.emoji` |
 | Tractor beam reach | `config.ops.tractorRange`, `.tractorCharge` |
+| Longer / shorter trip | move the places in `config.route` further apart / closer (an autopilot-only trip is ~2 min) |
 | Longer red alert | `config.captain.alertSeconds`, `.alertCharge`; route choice time: `.choiceSeconds` |
 | Funny console messages | `config.sillyLines` |
 | Console colours (orange, lilac …) | `config.lcars` |
@@ -76,6 +77,8 @@ Everything in this game lives in these files; don't create new files.
 - People: `people` / `aliens` / `answer` / `shooCat` / `tractorBeam` / `ping` / `cheer` (mood) in `simulaatio.ts`.
   The cat blocks a station's commands (`catOn`). Phones: `comms`, `ops`, `counselor` views, `catOverlay`, `pinged`.
   Main screen: `drawPeople`, `alienCalls`, `alienAnswered`, `catNews`, `tractor`.
+- A reload of the main screen continues the trip (`resume` in `simulaatio.ts`): same room, same ship.
+  Phones keep the screen on with the Screen Wake Lock (`keepAwake` in `asemat.ts`).
 - The main screen has two cameras: space is zoomed out (`ZOOM`), the console frame is not.
   Anything with `setScrollFactor(0)` goes to the frame camera automatically.
 - Helm sends held values to `inputs/ohjaus` (`turn`, `throttle`); `steer()` in `simulaatio.ts` reads them,

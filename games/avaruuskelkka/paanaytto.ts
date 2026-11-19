@@ -92,6 +92,8 @@ class Paanaytto extends Phaser.Scene {
   private catSign!: Phaser.GameObjects.Container;
   private catText!: Phaser.GameObjects.Text;
   private noteTimer = 0;
+  private blockLabels: Phaser.GameObjects.Text[] = [];
+  private beepTimer = 2;
 
   constructor(private code: string) {
     super('Paanaytto');
@@ -151,6 +153,7 @@ class Paanaytto extends Phaser.Scene {
     this.drawSecrets();
     this.drawFogAndAlert(dt);
     this.drawPeople(dt);
+    this.busyBridge(dt);
     const t = place(s, s.target);
     this.targetText.setText(`KOHDE: ${t.name.toUpperCase()} ${t.emoji}   ${Math.round(towards(s, t.x, t.y).distance)} KM`);
     this.dateText.setText(`TÄHTIPÄIVÄ ${stardate(s.time)}`);
@@ -210,7 +213,7 @@ class Paanaytto extends Phaser.Scene {
   /** The places on the route, the dotted route line, colourful space clouds and the edge of space. */
   private makeSpace() {
     const b = sim!.bounds;
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 140; i++) {
       const x = b.left + Math.random() * (b.right - b.left);
       const y = b.top + Math.random() * (b.bottom - b.top);
       this.add.circle(x, y, 200 + Math.random() * 500, Phaser.Utils.Array.GetRandom(LC), 0.06).setDepth(-5);
@@ -606,6 +609,17 @@ class Paanaytto extends Phaser.Scene {
     this.banner('WARP-NOPEUS!', config.lcars[2]);
   }
 
+  /** A busy bridge: consoles beep quietly and the numbers on the frame keep changing. */
+  private busyBridge(dt: number) {
+    if (sim!.phase !== 'matka') return;
+    this.beepTimer -= dt;
+    if (this.beepTimer > 0) return;
+    this.beepTimer = 1 + Math.random() * 3;
+    sfx('click', { pitch: 1.5 + Math.random() * 2, volume: 0.3 });
+    const block = Phaser.Utils.Array.GetRandom(this.blockLabels);
+    block.setText(`${10 + Math.floor(Math.random() * 90)}-${'ABKXQZ'[Math.floor(Math.random() * 6)]}`);
+  }
+
   // ---------------------------------------------------------------------------
   // The console frame around the viewscreen (rounded corners, coloured blocks)
   // ---------------------------------------------------------------------------
@@ -637,7 +651,7 @@ class Paanaytto extends Phaser.Scene {
     for (const [y, h, c, n] of blocks) {
       g.fillStyle(c);
       g.fillRect(0, y, 130, h);
-      fixed(label(this, 120, y + h - 30, n, 20).setOrigin(1, 0));
+      this.blockLabels.push(fixed(label(this, 120, y + h - 30, n, 20).setOrigin(1, 0)));
     }
     // More pieces of the top and bottom bars
     const bars = [[570, 0, 230, LC[2]], [810, 0, 140, LC[5]], [960, 0, 320, LC[4]], [570, 674, 330, LC[3]], [910, 674, 370, LC[2]]] as const;

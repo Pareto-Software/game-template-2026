@@ -86,14 +86,14 @@ export const config = {
   /** Reitti – the trip from home to the goal planet. */
   route: [
     { name: 'Kotitelakka', emoji: '🛰️', x: 0, y: 0 },
-    { name: 'Juustosumu', emoji: '🧀', x: 3200, y: -1300, pirate: true, fog: true },
+    { name: 'Juustosumu', emoji: '🧀', x: 7040, y: -2860, pirate: true, fog: true },
     {
-      name: 'Kivikaista', emoji: '🪨', x: 6400, y: 500, rocks: true,
-      alt: { name: 'Hattarapilvet', emoji: '🍭', x: 5200, y: -3900 },
+      name: 'Kivikaista', emoji: '🪨', x: 14080, y: 1100, rocks: true,
+      alt: { name: 'Hattarapilvet', emoji: '🍭', x: 11440, y: -8580 },
     },
-    { name: 'Pörröpäiden asema', emoji: '👾', x: 9200, y: -1500, aliens: true },
-    { name: 'Avaruusvalaan laulupaikka', emoji: '🐋', x: 12000, y: 300, pirate: true, song: true },
-    { name: 'Planeetta Kotikolo', emoji: '🪐', x: 15000, y: -700 },
+    { name: 'Pörröpäiden asema', emoji: '👾', x: 20240, y: -3300, aliens: true },
+    { name: 'Avaruusvalaan laulupaikka', emoji: '🐋', x: 26400, y: 660, pirate: true, song: true },
+    { name: 'Planeetta Kotikolo', emoji: '🪐', x: 33000, y: -1540 },
   ] as Waypoint[],
   /** How close the ship must fly to a place to "arrive" there. */
   arriveDistance: 220,
@@ -113,7 +113,7 @@ export const config = {
   /** Vaarat – things that fly at the ship. Sizes in pixels, speeds in pixels per second. */
   danger: {
     /** Kivet: a new rock every this many seconds (fieldEvery near a place with rocks: true). */
-    rock: { emoji: '🪨', every: 7, fieldEvery: 1.4, speed: 80, size: 95 },
+    rock: { emoji: '🪨', every: 5, fieldEvery: 1.4, speed: 80, size: 95 },
     /** Möhköttäjä: a silly space pirate that circles the ship and throws pies. */
     pirate: { name: 'Möhköttäjä', emoji: '🛸', hp: 3, throwsEvery: 3, leavesAfter: 45, size: 140 },
     /** Avaruuspiirakka: what the pirate throws. PLÖRTS! */
@@ -168,12 +168,12 @@ export const config = {
 
   /** Salaisuudet – hidden things that only a scan reveals. */
   secrets: [
-    { kind: 'madonreika', x: 4600, y: -450, exit: { x: 8600, y: -1100, target: 3 } },
-    { kind: 'kristalli', x: 1900, y: -1100 },
-    { kind: 'kristalli', x: 5000, y: -900 },
-    { kind: 'kristalli', x: 7800, y: -2300 },
-    { kind: 'kristalli', x: 10600, y: -1100 },
-    { kind: 'kristalli', x: 13400, y: 200 },
+    { kind: 'madonreika', x: 10120, y: -990, exit: { x: 18920, y: -2420, target: 3 } },
+    { kind: 'kristalli', x: 4180, y: -2420 },
+    { kind: 'kristalli', x: 11000, y: -1980 },
+    { kind: 'kristalli', x: 17160, y: -5060 },
+    { kind: 'kristalli', x: 23320, y: -2420 },
+    { kind: 'kristalli', x: 29480, y: 440 },
   ] as SecretDef[],
   secretLooks: {
     madonreika: { name: 'Madonreikä', emoji: '🌀', size: 220 },
@@ -217,7 +217,7 @@ export const config = {
     /** Messages per visit near a place with aliens: true. */
     perVisit: 3,
     /** Also a surprise call every this many seconds (0 = never). */
-    randomEvery: 80,
+    randomEvery: 60,
     /** Seconds to answer before the aliens give up. */
     answerSeconds: 20,
     /** A friendly answer gives morale and a crystal; a rude one makes them throw this many pies. */

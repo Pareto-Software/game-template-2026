@@ -592,6 +592,7 @@ function setUpPage() {
   document.head.appendChild(style);
   app.className = 'phone';
   document.body.appendChild(app);
+  keepAwake();
   app.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('button');
     if (!b || b.dataset.hold || b.dataset.zap || b.dataset.fix || b.dataset.beat) return;
@@ -630,6 +631,23 @@ function setUpPage() {
   app.addEventListener('pointerup', release);
   app.addEventListener('pointercancel', release);
   app.addEventListener('contextmenu', (e) => e.preventDefault()); // long press must not open a menu
+}
+
+/** Keeps the phone's screen on while playing (Screen Wake Lock, where the browser has it). */
+function keepAwake() {
+  let lock: WakeLockSentinel | null = null;
+  const ask = async () => {
+    if (lock || document.visibilityState !== 'visible') return;
+    try {
+      lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', () => (lock = null));
+    } catch {
+      // not allowed or not supported: the game works anyway, the screen may just go dark
+    }
+  };
+  ask();
+  document.addEventListener('visibilitychange', ask);
+  addEventListener('pointerdown', ask); // some phones only allow it after a tap
 }
 
 const colourCss = config.lcars.map((c, i) => `.c${i} { background: ${c}; }`).join('\n');
