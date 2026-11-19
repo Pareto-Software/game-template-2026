@@ -82,6 +82,21 @@ and answer **"Yes, and don't ask again"** when Claude first runs `npm` or `git`.
 - **"Kumoa"** undoes the last change, **"Peli on rikki"** fixes errors.
 - Adult keys: ⚙️ / Esc menu, Shift+N next level, Shift+G can't get hurt, P pause, M mute.
 
+### Avaruuskelkka on the day
+
+1. On the projector computer open the **published** game,
+   `https://<organisation>.github.io/<repo-name>/games/avaruuskelkka/`, and press F11 for full screen.
+   (Phones can't reach `localhost`, so use the published page for real phones.)
+2. Kids scan the QR code (or open `…/games/avaruuskelkka/?liity` and type the room code)
+   and each picks a station. Stations nobody picks run on autopilot.
+3. The Kapteeni taps **Tehkää niin!** (or click the button on the main screen).
+4. After the kids' changes are published (about a minute), reload the main screen: the trip
+   continues in the same room. Phones reload themselves only if you reload them.
+5. Testing on one computer: `npm run dev`, then open `…/games/avaruuskelkka/?testi`
+   (the main screen + simulated phones; 📱 + puhelin adds one).
+
+Phones and the computer need internet (Firebase). Check that the venue Wi-Fi allows it.
+
 ### Problems
 
 | Problem | Fix |
@@ -89,6 +104,8 @@ and answer **"Yes, and don't ask again"** when Claude first runs `npm` or `git`.
 | Web page shows 404 | Do steps 2.2 and 2.3. |
 | `git push` fails with a login error | Set up the git login (step 1). |
 | `git push` is rejected | Tell Claude "push epäonnistui". |
+| Avaruuskelkka: a phone says "Huonetta ei löytynyt" | Rescan the QR code on the main screen (the room changed). |
+| Avaruuskelkka: phones don't react | Check the internet connection; reload the phone. |
 | Anything else | Call the technical lead. |
 
 ## What's in here
@@ -100,6 +117,7 @@ and answer **"Yes, and don't ask again"** when Claude first runs `npm` or `git`.
 | `games/labyrintti/` | Maze: 2 levels, critters, a key and doors. |
 | `games/lumisota/` | Top-down snowball fight made with Phaser 4.2.1: waves of snowmen and a boss, or player vs player. |
 | `games/reaktio/` | Nopeat näpit: a tapping reaction game for touch screens (several fingers at once). |
+| `games/avaruuskelkka/` | Avaruuskelkka: a co-op starship-bridge game for 2–10 players. Phones are the ship's stations, the projector is the main screen. Uses Firebase (see below). |
 | `kit/` | Shared engine: loop, input (2 players + gamepads), touch (taps), sound, sprites, physics, particles, ui, themes, menu; `kit/phaser.ts` for Phaser games. |
 | `docs/recipes/` | Short how-tos for common requests. |
 | `assets/CATALOG.md` | Emoji ideas, themes, sound names. |
@@ -121,6 +139,51 @@ an existing one); it appears in the gallery and the build automatically.
   single player / two players, sound on/off.
   **← Kaikki pelit** goes back to the gallery.
 - Adult keys: Shift+N next level, Shift+G can't get hurt, Shift+R restart level, P pause, M mute.
+
+## Firebase (online games)
+
+Games played on many devices at once (like Avaruuskelkka) use Firebase Realtime
+Database through `online` from `@kit/firebase`. Players sign in anonymously; no
+names or typed text are ever stored.
+
+| File | What |
+| --- | --- |
+| `firebase-web-config.json` | **Which Firebase project** the games use (the web app config – public by design). |
+| `.firebaserc` | The same project id, for the `firebase-tools` CLI. |
+| `database.rules.json` | Who may read and write what. Deploy with `npx firebase-tools deploy --only database`. |
+| `kit/firebase.ts` | The `online` helper: rooms, read/watch/write, presence. |
+
+**Every game has its own section.** The kit puts each game's data under
+`games/<game folder>/…`, worked out from the page address. A game just uses paths like
+`rooms/1234/state`, and in the database they end up at `games/avaruuskelkka/rooms/1234/state`.
+Two games never see each other's rooms, and a new online game needs no setup: copy a
+game folder, import `online` and use `rooms/…`. The rules allow, in every game section,
+`rooms/<4-digit code>/` with `createdAt`, `hostUid`, `phase`, `state` (host only),
+`players/<uid>` (`station` + `colour`), `inputs/<station>` and `commands/<id>`
+(short codes and numbers only). A game that needs something else needs a rules change.
+
+### Firebase: use your own project
+
+The repo points at the project `avaruuskelkka`. To use another one (e.g. your own team's copy):
+
+1. `npx firebase-tools login` (a Google account that can create projects).
+2. In the [Firebase console](https://console.firebase.google.com): **Create a project**
+   (Analytics not needed), then **Build → Realtime Database → Create database**
+   (location e.g. *europe-west1*, *locked mode*), and **Authentication → Get started →
+   Sign-in method → Anonymous → Enable**.
+3. Create a web app and print its config:
+   `npx firebase-tools apps:create web peli --project <project-id>`, then
+   `npx firebase-tools apps:sdkconfig web --project <project-id>`.
+4. Copy the values into `firebase-web-config.json`: `apiKey`, `authDomain`, `databaseURL`,
+   `projectId`, `storageBucket`, `messagingSenderId`, `appId`. If `databaseURL` is missing,
+   it is shown in the console's Realtime Database page, e.g.
+   `https://<project-id>-default-rtdb.europe-west1.firebasedatabase.app`.
+5. Put the same project id in `.firebaserc`.
+6. Deploy the rules: `npx firebase-tools deploy --only database`.
+7. Commit and push. Test with `…/games/avaruuskelkka/?testi`.
+
+If `firebase-web-config.json` is empty or incomplete, the online games show a yellow
+"Firebase ei ole asetettu" box instead of starting.
 
 ## Notes
 
