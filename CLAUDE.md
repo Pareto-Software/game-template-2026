@@ -9,7 +9,8 @@ kids are waiting, so make the change quickly and keep the game playable.
 - Every game is a folder in `games/`: `games/tasohyppely/` (platformer),
   `games/labyrintti/` (maze) and `games/lumisota/` (top-down snowball fight made
   with Phaser 4.2.1 – use only Phaser 4 APIs there), `games/reaktio/` (tapping game
-  for touch screens), plus any the team adds. The gallery page
+  for touch screens), `games/avaruuskelkka/` (bridge crew: phones are the stations of a
+  spaceship, the computer is the main screen; Phaser 4.2.1 + Firebase), plus any the team adds. The gallery page
   (`index.html` + `gallery/`) lists them all automatically from their `meta.json`.
 - Work in the game the kids are playing. If it isn't clear which one, ask once.
 - Read that game's `README.md` first: it maps which file and function handles what.
@@ -18,7 +19,7 @@ kids are waiting, so make the change quickly and keep the game playable.
 - Look things up before inventing them:
   - `docs/recipes/` – how to do common requests (hahmo, vihollinen, kentta, ammus, sade,
     kuva = draw an own character as SVG);
-    they cover tasohyppely and labyrintti – for lumisota and reaktio their README is the map
+    they cover tasohyppely and labyrintti – for lumisota, reaktio and avaruuskelkka their README is the map
   - `assets/CATALOG.md` – emoji ideas, themes and sound names
 - `kit/` is shared by every game: import it with `@kit/...`, don't change it for
   one game. Never write your own keyboard, gamepad, touch, storage or sound code
@@ -69,6 +70,21 @@ kids are waiting, so make the change quickly and keep the game playable.
 - Never put names or personal details in the game, comments, commit messages
   or `meta.json`. Use the team name the group invents.
 - If an idea breaks these rules, cheerfully suggest a fun alternative that fits.
+
+## Avaruuskelkka exceptions (`games/avaruuskelkka/`)
+Avaruuskelkka is a bridge-crew game: phones are the ship's stations, the
+computer is the main screen. Plan: `games/avaruuskelkka/PLAN.md`. Only in this game:
+- It talks to Firebase, but only through `online` from `@kit/firebase` (paths like
+  `rooms/1234/state`; the kit keeps each game in its own `games/<game>/` section). Never
+  add other network code, and never change `database.rules.json`, `firebase.json`,
+  `.firebaserc`, `firebase-web-config.json` or `kit/firebase.ts` for a kid's request.
+- Store only what the rules allow: station names, colours, numbers, true/false and
+  short codes. Never typed text, names or anything personal.
+- The main screen may show a QR code of the game's own address (`location.href`) –
+  no other URLs.
+- Controls: phones are touch-only HTML buttons and the main screen has no keyboard
+  players. After a change, joining by QR code / room code and every station must
+  still work (test with `?testi`).
 
 ## Replying
 - Reply in Finnish, in one or two short sentences a child understands: what

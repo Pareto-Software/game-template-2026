@@ -1,0 +1,81 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "games": {
+      "$game": {
+        ".validate": "$game.matches(/^[a-z]{1,30}$/)",
+        "rooms": {
+          ".read": "auth != null",
+          ".indexOn": [
+            "createdAt"
+          ],
+          "$code": {
+            ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('hostUid').val() === auth.uid || data.child('createdAt').val() < now - 86400000)))",
+            ".validate": "$code.matches(/^[0-9]{4}$/) && newData.hasChildren(['createdAt', 'hostUid'])",
+            "createdAt": {
+              ".validate": "newData.isNumber() && (data.exists() ? newData.val() === data.val() : newData.val() === now)"
+            },
+            "hostUid": {
+              ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+            },
+            "phase": {
+              ".write": "auth != null && data.parent().child('hostUid').val() === auth.uid",
+              ".validate": "newData.isString() && newData.val().matches(/^[a-z]{1,20}$/)"
+            },
+            "state": {
+              ".write": "auth != null && data.parent().child('hostUid').val() === auth.uid"
+            },
+            "players": {
+              "$uid": {
+                ".write": "auth != null && (auth.uid === $uid || data.parent().parent().child('hostUid').val() === auth.uid)",
+                ".validate": "newData.hasChildren(['station', 'colour'])",
+                "station": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[a-z]{1,20}$/)"
+                },
+                "colour": {
+                  ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-f]{6}$/)"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "inputs": {
+              "$station": {
+                ".write": "auth != null && data.parent().parent().child('players').child(auth.uid).child('station').val() === $station",
+                "$key": {
+                  ".validate": "$key.matches(/^[a-zA-Z0-9_]{1,20}$/) && (newData.isNumber() || newData.isBoolean())"
+                }
+              }
+            },
+            "commands": {
+              "$id": {
+                ".write": "auth != null && (newData.exists() ? data.parent().parent().child('players').child(auth.uid).exists() && newData.child('uid').val() === auth.uid : data.parent().parent().child('hostUid').val() === auth.uid)",
+                ".validate": "newData.hasChildren(['uid', 'station', 'action'])",
+                "uid": {
+                  ".validate": "newData.isString()"
+                },
+                "station": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[a-z]{1,20}$/)"
+                },
+                "action": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[a-zA-Z0-9_]{1,30}$/)"
+                },
+                "value": {
+                  ".validate": "newData.isNumber() || newData.isBoolean() || (newData.isString() && newData.val().matches(/^[a-zA-Z0-9_]{0,30}$/))"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    }
+  }
+}
